@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scanner 词法分析器可视化</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background: #f4f6fb;
+      color: #222;
+    }
+
+    header {
+      padding: 18px 28px;
+      background: #20232a;
+      color: #fff;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      color: #cfd3dc;
+      font-size: 14px;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 38% 62%;
+      gap: 16px;
+      padding: 16px;
+      height: calc(100vh - 86px);
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      border-left: 4px solid #3f7cff;
+      padding-left: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 240px;
+      resize: vertical;
+      padding: 12px;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+      border: 1px solid #ccd3e0;
+      border-radius: 8px;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      border-color: #3f7cff;
+    }
+
+    .mode-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+      background: #3f7cff;
+      color: white;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #606b80;
+    }
+
+    button.warning {
+      background: #e67e22;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    input[type="number"] {
+      width: 80px;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #ccd3e0;
+    }
+
+    .right {
+      display: grid;
+      grid-template-rows: 42% 58%;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .status-view {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: calc(100% - 34px);
+    }
+
+    .code-view, .state-view {
+      background: #f8faff;
+      border: 1px solid #dce3f2;
+      border-radius: 10px;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .code-line {
+      font-family: Consolas, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.7;
+    }
+
+    .char {
+      display: inline-block;
+      min-width: 9px;
+      padding: 1px 2px;
+      border-radius: 4px;
+    }
+
+    .char.current {
+      background: #ffdd57;
+      color: #000;
+    }
+
+    .char.done {
+      background: #dceeff;
+    }
+
+    .state-card {
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #dce3f2;
+    }
+
+    .state-title {
+      font-weight: bold;
+      margin-bottom: 6px;
+      color: #3f7cff;
+    }
+
+    .token-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .token-table th, .token-table td {
+      border-bottom: 1px solid #e5eaf4;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .token-table th {
+      background: #f1f4fa;
+      position: sticky;
+      top: 0;
+    }
+
+    .token-row.current-token {
+      background: #fff4cc;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef3ff;
+      color: #2d5bd1;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .rules {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.7;
+      background: #f8faff;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .step-list {
+      margin: 0;
+      padding-left: 18px;
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    .error {
+      color: #c0392b;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Scanner 词法分析器可视化</h1>
+    <p>支持三种模式：按空格符号串、一行源码字符串、文件内容扫描；按主文法词法类别输出 Token。</p>
+  </header>
+
+  <div class="container">
+    <section class="panel">
+      <h2>输入区域</h2>
+
+      <div class="mode-box">
+        <label><input type="radio" name="mode" value="1" checked /> 模式1：按空格分隔的符号串识别</label>
+        <label><input type="radio" name="mode" value="2" /> 模式2：输入一行源码字符串扫描</label>
+        <label><input type="radio" name="mode" value="3" /> 模式3：从文件读取源码扫描</label>
+      </div>
+
+      <div id="countBox">
+        符号串个数：<input id="wordCount" type="number" value="5" min="1" />
+      </div>
+
+      <textarea id="sourceInput">int a = 10 ; float b = 3.14</textarea>
+
+      <div style="margin-top: 10px;">
+        <input id="fileInput" type="file" accept=".c,.cpp,.txt,.q,.src" />
+      </div>
+
+      <div class="buttons">
+        <button onclick="scanSource()">开始扫描</button>
+        <button class="secondary" onclick="prevStep()">上一步</button>
+        <button class="secondary" onclick="nextStep()">下一步</button>
+        <button class="warning" onclick="resetAll()">清空</button>
+      </div>
+
+      <div class="rules">
+        <strong>识别规则：</strong><br />
+        KEY = int / float / void / if / else / while / return / input / print<br />
+        ID = [a-zA-Z][a-zA-Z0-9]* 且不属于 KEY<br />
+        NUM = [+|-]?[0-9]+<br />
+        FLO = [+|-]?[0-9]*.[0-9]+ 或 [+|-]?[0-9]+.[0-9]*<br />
+        OP = AOP ∪ ROP ∪ BOP ∪ ASG ∪ AAS ∪ AAA<br />
+        DLI = ( ) [ ] { } , ;
+      </div>
+    </section>
+
+    <section class="right">
+      <section class="panel">
+        <h2>扫描过程可视化</h2>
+        <div class="status-view">
+          <div class="code-view">
+            <div id="codeView" class="code-line">等待扫描...</div>
+          </div>
+          <div class="state-view">
+            <div class="state-card">
+              <div class="state-title">当前扫描状态</div>
+              <div>当前位置：<span id="posInfo" class="tag">-</span></div>
+              <div>当前字符：<span id="charInfo" class="tag">-</span></div>
+              <div>当前 Token：<span id="tokenInfo" class="tag">-</span></div>
+              <div>匹配规则：<span id="ruleInfo" class="tag">-</span></div>
+            </div>
+            <div class="state-card">
+              <div class="state-title">步骤说明</div>
+              <ol id="stepList" class="step-list"></ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Token 输出结果</h2>
+        <table class="token-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Token 类型</th>
+              <th>Token 值</th>
+              <th>起始位置</th>
+              <th>结束位置</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="tokenBody">
+            <tr><td colspan="6">暂无结果</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </section>
+  </div>
+
+  <script>
+    const keywords = {
+      int: "INT",
+      float: "FLOAT",
+      void: "VOID",
+      if: "IF",
+      else: "ELSE",
+      while: "WHILE",
+      return: "RETURN",
+      input: "INPUT",
+      print: "PRINT"
+    };
+
+    let tokens = [];
+    let steps = [];
+    let currentStep = -1;
+    let currentSource = "";
+
+    function isLetter(c) {
+      return /^[A-Za-z]$/.test(c);
+    }
+
+    function isDigit(c) {
+      return /^[0-9]$/.test(c);
+    }
+
+    function isBlank(c) {
+      return /\s/.test(c);
+    }
+
+    function addToken(type, value, start, end, rule) {
+      const token = { type, value, start, end, rule };
+      tokens.push(token);
+      steps.push({
+        pos: start,
+        char: currentSource[start] ?? "EOF",
+        token,
+        rule,
+        message: `从位置 ${start} 到 ${end - 1} 识别出 (${type}, ${value})`
+      });
+    }
+
+    function scan(code) {
+      tokens = [];
+      steps = [];
+      currentSource = code;
+
+      let pos = 0;
+
+      while (pos < code.length) {
+        while (pos < code.length && isBlank(code[pos])) {
+          steps.push({
+            pos,
+            char: code[pos] === "\n" ? "\\n" : code[pos],
+            token: null,
+            rule: "空白符",
+            message: `跳过空白符`
+          });
+          pos++;
+        }
+
+        if (pos >= code.length) break;
+
+        const start = pos;
+        const c = code[pos];
+
+        // ID / KEY
+        if (isLetter(c)) {
+          let word = "";
+          while (pos < code.length && (isLetter(code[pos]) || isDigit(code[pos]))) {
+            word += code[pos++];
+          }
+
+          if (keywords[word]) {
+            addToken(keywords[word], word, start, pos, `KEY 表中的关键字 ${word}`);
+          } else {
+            addToken("ID", word, start, pos, "ID = [a-zA-Z][a-zA-Z0-9]* 且不属于 KEY");
+          }
+          continue;
+        }
+
+        // NUM / FLO，支持正负号作为数字的一部分
+        if (isDigit(c) || ((c === "+" || c === "-") && isDigit(code[pos + 1]))) {
+          let value = "";
+          let hasDot = false;
+
+          if (code[pos] === "+" || code[pos] === "-") {
+            value += code[pos++];
+          }
+
+          while (pos < code.length && isDigit(code[pos])) {
+            value += code[pos++];
+          }
+
+          if (code[pos] === ".") {
+            hasDot = true;
+            value += code[pos++];
+            while (pos < code.length && isDigit(code[pos])) {
+              value += code[pos++];
+            }
+          }
+
+          if (hasDot) {
+            addToken("FLO", value, start, pos, "FLO = [+|-]?[0-9]*.[0-9]+ 或 [+|-]?[0-9]+.[0-9]*");
+          } else {
+            addToken("NUM", value, start, pos, "NUM = [+|-]?[0-9]+");
+          }
+          continue;
+        }
+
+        // AAA / AAS
+        if (code.startsWith("++", pos)) {
+          pos += 2;
+          addToken("AAA", "++", start, pos, "AAA = {++}");
+          continue;
+        }
+
+        if (code.startsWith("+=", pos)) {
+          pos += 2;
+          addToken("AAS", "+=", start, pos, "AAS = {+=}");
+          continue;
+        }
+
+        // ROP
+        const two = code.slice(pos, pos + 2);
+        if (["<=", "==", ">=", "!="].includes(two)) {
+          pos += 2;
+          addToken("ROP", two, start, pos, "ROP = {<, <=, ==, >, >=, !=}");
+          continue;
+        }
+
+        if (["<", ">"].includes(c)) {
+          pos++;
+          addToken("ROP", c, start, pos, "ROP = {<, <=, ==, >, >=, !=}");
+          continue;
+        }
+
+        // BOP
+        if (["&&", "||"].includes(two)) {
+          pos += 2;
+          addToken("BOP", two, start, pos, "BOP = {&&, ||, !}");
+          continue;
+        }
+
+        if (c === "!") {
+          pos++;
+          addToken("BOP", "!", start, pos, "BOP = {&&, ||, !}");
+          continue;
+        }
+
+        // ASG
+        if (c === "=") {
+          pos++;
+          addToken("ASG", "=", start, pos, "ASG = {=}");
+          continue;
+        }
+
+        // AOP
+        if (c === "+") {
+          pos++;
+          addToken("ADD", "+", start, pos, "ADD = {+}");
+          continue;
+        }
+
+        if (c === "-") {
+          pos++;
+          addToken("SUB", "-", start, pos, "SUB = {-}");
+          continue;
+        }
+
+        if (c === "*") {
+          pos++;
+          addToken("MUL", "*", start, pos, "MUL = {*} ");
+          continue;
+        }
+
+        if (c === "/") {
+          pos++;
+          addToken("DIV", "/", start, pos, "DIV = {/}");
+          continue;
+        }
+
+        // DLI
+        const dliMap = {
+          "(": "LPA",
+          ")": "RPA",
+          "[": "LBK",
+          "]": "RBK",
+          "{": "LBR",
+          "}": "RBR",
+          ",": "CMA",
+          ";": "SCO"
+        };
+
+        if (dliMap[c]) {
+          pos++;
+          addToken(dliMap[c], c, start, pos, `DLI 分隔符 ${dliMap[c]}`);
+          continue;
+        }
+
+        // UNKNOWN
+        pos++;
+        addToken("UNKNOWN", c, start, pos, "无法匹配任何词法规则");
+      }
+
+      steps.push({
+        pos: code.length,
+        char: "EOF",
+        token: { type: "END", value: "#", start: code.length, end: code.length, rule: "输入结束" },
+        rule: "END",
+        message: "扫描结束，生成结束标记 (END, #)"
+      });
+    }
+
+    function getMode() {
+      return document.querySelector("input[name='mode']:checked").value;
+    }
+
+    function getInputByMode() {
+      const mode = getMode();
+      const text = document.getElementById("sourceInput").value;
+
+      if (mode === "1") {
+        const n = Number(document.getElementById("wordCount").value);
+        const words = text.trim().split(/\s+/).filter(Boolean);
+        return words.slice(0, n).join(" ");
+      }
+
+      if (mode === "2") {
+        return text.split("\n")[0] ?? "";
+      }
+
+      return text;
+    }
+
+    function scanSource() {
+      const code = getInputByMode();
+      scan(code);
+      currentStep = steps.length > 0 ? 0 : -1;
+      renderAll();
+    }
+
+    function renderAll() {
+      renderCode();
+      renderState();
+      renderTokens();
+      renderSteps();
+    }
+
+    function renderCode() {
+      const codeView = document.getElementById("codeView");
+      if (!currentSource) {
+        codeView.textContent = "等待扫描...";
+        return;
+      }
+
+      const step = steps[currentStep];
+      const pos = step ? step.pos : -1;
+      let html = "";
+
+      for (let i = 0; i < currentSource.length; i++) {
+        const ch = currentSource[i] === "\n" ? "\n" : escapeHtml(currentSource[i]);
+        const cls = i === pos ? "char current" : i < pos ? "char done" : "char";
+        html += `<span class="${cls}">${ch === "\n" ? "<br>" : ch}</span>`;
+      }
+
+      if (pos === currentSource.length) {
+        html += `<span class="char current">#</span>`;
+      }
+
+      codeView.innerHTML = html;
+    }
+
+    function renderState() {
+      const step = steps[currentStep];
+
+      if (!step) {
+        document.getElementById("posInfo").textContent = "-";
+        document.getElementById("charInfo").textContent = "-";
+        document.getElementById("tokenInfo").textContent = "-";
+        document.getElementById("ruleInfo").textContent = "-";
+        return;
+      }
+
+      document.getElementById("posInfo").textContent = step.pos;
+      document.getElementById("charInfo").textContent = step.char;
+      document.getElementById("tokenInfo").textContent = step.token ? `(${step.token.type}, ${step.token.value})` : "未生成 Token";
+      document.getElementById("ruleInfo").textContent = step.rule;
+    }
+
+    function renderSteps() {
+      const list = document.getElementById("stepList");
+      list.innerHTML = "";
+
+      const start = Math.max(0, currentStep - 4);
+      const end = Math.min(steps.length, currentStep + 5);
+
+      for (let i = start; i < end; i++) {
+        const li = document.createElement("li");
+        li.innerHTML = i === currentStep ? `<strong>${escapeHtml(steps[i].message)}</strong>` : escapeHtml(steps[i].message);
+        list.appendChild(li);
+      }
+    }
+
+    function renderTokens() {
+      const tbody = document.getElementById("tokenBody");
+      tbody.innerHTML = "";
+
+      const visibleTokens = tokens.slice();
+      visibleTokens.push({ type: "END", value: "#", start: currentSource.length, end: currentSource.length, rule: "输入结束" });
+
+      if (visibleTokens.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6">暂无结果</td></tr>`;
+        return;
+      }
+
+      const currentToken = steps[currentStep]?.token;
+
+      visibleTokens.forEach((t, index) => {
+        const tr = document.createElement("tr");
+        tr.className = currentToken && t.start === currentToken.start && t.end === currentToken.end && t.type === currentToken.type ? "token-row current-token" : "token-row";
+        tr.innerHTML = `
+          <td>${index + 1}</td>
+          <td><span class="tag">${escapeHtml(t.type)}</span></td>
+          <td>${escapeHtml(t.value)}</td>
+          <td>${t.start}</td>
+          <td>${t.end}</td>
+          <td>${escapeHtml(t.rule)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function nextStep() {
+      if (steps.length === 0) return;
+      currentStep = Math.min(currentStep + 1, steps.length - 1);
+      renderAll();
+    }
+
+    function prevStep() {
+      if (steps.length === 0) return;
+      currentStep = Math.max(currentStep - 1, 0);
+      renderAll();
+    }
+
+    function resetAll() {
+      tokens = [];
+      steps = [];
+      currentStep = -1;
+      currentSource = "";
+      document.getElementById("sourceInput").value = "";
+      renderAll();
+      document.getElementById("tokenBody").innerHTML = `<tr><td colspan="6">暂无结果</td></tr>`;
+      document.getElementById("codeView").textContent = "等待扫描...";
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    document.querySelectorAll("input[name='mode']").forEach(radio => {
+      radio.addEventListener("change", () => {
+        const mode = getMode();
+        document.getElementById("countBox").style.display = mode === "1" ? "block" : "none";
+        document.getElementById("fileInput").style.display = mode === "3" ? "block" : "none";
+      });
+    });
+
+    document.getElementById("fileInput").addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        document.getElementById("sourceInput").value = e.target.result;
+      };
+      reader.readAsText(file, "UTF-8");
+    });
+
+    document.getElementById("fileInput").style.display = "none";
+    scanSource();
+  </script>
+</body>
+</html>

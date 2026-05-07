@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DFA 可视化与字符串判定</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    .page {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .left,
+    .right-top,
+    .right-bottom {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .right {
+      display: grid;
+      grid-template-rows: 55% 45%;
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    h2, h3 {
+      margin: 0 0 12px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid #ccd3dc;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 14px;
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    button {
+      margin-top: 14px;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      background: #2563eb;
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .tip {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #475569;
+    }
+
+    .error {
+      margin-top: 10px;
+      color: #dc2626;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .tools {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .box {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+      background: #fafafa;
+      min-height: 160px;
+    }
+
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #f8fafc;
+      min-height: 42px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 14px;
+    }
+
+    .accept {
+      color: #16a34a;
+      font-weight: bold;
+    }
+
+    .reject {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    svg {
+      width: 100%;
+      height: calc(100% - 38px);
+      min-height: 300px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fbfdff;
+    }
+
+    .state {
+      fill: #ffffff;
+      stroke: #2563eb;
+      stroke-width: 2;
+    }
+
+    .accept-state {
+      stroke: #16a34a;
+      stroke-width: 3;
+    }
+
+    .start-state {
+      fill: #eff6ff;
+    }
+
+    .edge {
+      stroke: #475569;
+      stroke-width: 1.8;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .self-edge {
+      stroke: #475569;
+      stroke-width: 1.8;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .edge-label,
+    .state-label {
+      font-size: 14px;
+      dominant-baseline: middle;
+      text-anchor: middle;
+    }
+
+    .small-note {
+      font-size: 12px;
+      fill: #64748b;
+    }
+
+    @media (max-width: 900px) {
+      .page {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .right {
+        grid-template-rows: auto auto;
+      }
+
+      .tools {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="left">
+      <h2>DFA 输入</h2>
+
+      <label>输入字母表（空格分隔）</label>
+      <input id="alphabet" value="a b" />
+
+      <label>状态集合（空格分隔）</label>
+      <input id="states" value="0 1" />
+
+      <label>开始状态</label>
+      <input id="startState" value="0" />
+
+      <label>接受状态（空格分隔）</label>
+      <input id="acceptStates" value="1" />
+
+      <label>转移矩阵</label>
+      <textarea id="matrix">0 1
+1 0</textarea>
+
+      <button onclick="buildDFA()">构建 DFA</button>
+
+      <div class="tip">
+        转移矩阵规则：<br />
+        行对应状态集合输入顺序，列对应字母表输入顺序。<br />
+        例如字母表为 a b，状态为 0 1，则第 1 行第 2 列表示 δ(0,b)。
+      </div>
+
+      <div id="error" class="error"></div>
+    </div>
+
+    <div class="right">
+      <div class="right-top">
+        <h3>DFA 状态转换图</h3>
+        <svg id="graph"></svg>
+      </div>
+
+      <div class="right-bottom">
+        <div class="tools">
+          <div class="box">
+            <h3>生成长度 ≤ N 的规则字符串</h3>
+            <label>N</label>
+            <input id="maxLen" type="number" min="0" value="3" />
+            <button onclick="listAcceptedStrings()">生成字符串</button>
+            <div id="stringsResult" class="result"></div>
+          </div>
+
+          <div class="box">
+            <h3>判断字符串是否接受</h3>
+            <label>待判断字符串</label>
+            <input id="testString" value="ab" />
+            <button onclick="judgeString()">判断</button>
+            <div id="judgeResult" class="result"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let dfa = null;
+
+    function splitWords(text) {
+      return text.trim().split(/\s+/).filter(Boolean);
+    }
+
+    function showError(msg) {
+      document.getElementById("error").textContent = msg;
+    }
+
+    function buildDFA() {
+      showError("");
+
+      const alphabet = splitWords(document.getElementById("alphabet").value);
+      const states = splitWords(document.getElementById("states").value);
+      const startState = document.getElementById("startState").value.trim();
+      const acceptStates = splitWords(document.getElementById("acceptStates").value);
+      const matrixRows = document.getElementById("matrix").value
+        .trim()
+        .split(/\n+/)
+        .map(row => splitWords(row));
+
+      try {
+        if (alphabet.length === 0) throw new Error("字母表不能为空");
+        if (states.length === 0) throw new Error("状态集合不能为空");
+        if (!states.includes(startState)) throw new Error("开始状态不在状态集合中");
+
+        for (const s of acceptStates) {
+          if (!states.includes(s)) throw new Error("接受状态 " + s + " 不在状态集合中");
+        }
+
+        if (matrixRows.length !== states.length) {
+          throw new Error("转移矩阵行数应等于状态数量");
+        }
+
+        const delta = {};
+        for (let i = 0; i < states.length; i++) {
+          if (matrixRows[i].length !== alphabet.length) {
+            throw new Error("第 " + (i + 1) + " 行的列数应等于字母表数量");
+          }
+
+          delta[states[i]] = {};
+          for (let j = 0; j < alphabet.length; j++) {
+            const next = matrixRows[i][j];
+            if (!states.includes(next)) {
+              throw new Error("转移目标状态 " + next + " 不在状态集合中");
+            }
+            delta[states[i]][alphabet[j]] = next;
+          }
+        }
+
+        dfa = {
+          alphabet,
+          states,
+          startState,
+          acceptStates: new Set(acceptStates),
+          delta
+        };
+
+        drawGraph();
+        document.getElementById("stringsResult").textContent = "";
+        document.getElementById("judgeResult").textContent = "";
+      } catch (e) {
+        dfa = null;
+        document.getElementById("graph").innerHTML = "";
+        showError(e.message);
+      }
+    }
+
+    function runDFA(str) {
+      let cur = dfa.startState;
+      const path = [cur];
+
+      for (const ch of str) {
+        if (!dfa.alphabet.includes(ch)) {
+          return {
+            ok: false,
+            accepted: false,
+            error: "字符 " + ch + " 不在字母表中"
+          };
+        }
+        cur = dfa.delta[cur][ch];
+        path.push(cur);
+      }
+
+      return {
+        ok: true,
+        accepted: dfa.acceptStates.has(cur),
+        finalState: cur,
+        path
+      };
+    }
+
+    function listAcceptedStrings() {
+      if (!dfa) {
+        showError("请先构建 DFA");
+        return;
+      }
+
+      const n = Number(document.getElementById("maxLen").value);
+      if (!Number.isInteger(n) || n < 0) {
+        document.getElementById("stringsResult").textContent = "N 必须是非负整数";
+        return;
+      }
+
+      const ans = [];
+
+      function dfs(str, depth) {
+        const res = runDFA(str);
+        if (res.ok && res.accepted) {
+          ans.push(str === "" ? "ε" : str);
+        }
+
+        if (depth === n) return;
+
+        for (const ch of dfa.alphabet) {
+          dfs(str + ch, depth + 1);
+        }
+      }
+
+      dfs("", 0);
+
+      document.getElementById("stringsResult").textContent =
+        ans.length === 0 ? "无" : ans.join("\n");
+    }
+
+    function judgeString() {
+      if (!dfa) {
+        showError("请先构建 DFA");
+        return;
+      }
+
+      const str = document.getElementById("testString").value.trim();
+      const res = runDFA(str);
+      const div = document.getElementById("judgeResult");
+
+      if (!res.ok) {
+        div.innerHTML = '<span class="reject">拒绝</span>\n' + res.error;
+        return;
+      }
+
+      const status = res.accepted
+        ? '<span class="accept">接受</span>'
+        : '<span class="reject">拒绝</span>';
+
+      div.innerHTML =
+        status +
+        "\n最终状态：" + res.finalState +
+        "\n状态路径：" + res.path.join(" -> ");
+    }
+
+    function drawGraph() {
+      const svg = document.getElementById("graph");
+      svg.innerHTML = "";
+
+      const rect = svg.getBoundingClientRect();
+      const width = rect.width || 800;
+      const height = rect.height || 400;
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs.innerHTML = `
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#475569"></path>
+        </marker>
+      `;
+      svg.appendChild(defs);
+
+      const padding = 90;
+      const nodeRadius = 28;
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = Math.max(
+        60,
+        Math.min(width - padding * 2, height - padding * 2) / 2
+      );
+      const pos = {};
+
+      dfa.states.forEach((s, i) => {
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / dfa.states.length;
+        pos[s] = {
+          x: clamp(cx + radius * Math.cos(angle), padding, width - padding),
+          y: clamp(cy + radius * Math.sin(angle), padding, height - padding)
+        };
+      });
+
+      const edgeMap = new Map();
+      for (const from of dfa.states) {
+        for (const ch of dfa.alphabet) {
+          const to = dfa.delta[from][ch];
+          const key = from + "->" + to;
+          if (!edgeMap.has(key)) edgeMap.set(key, []);
+          edgeMap.get(key).push(ch);
+        }
+      }
+
+      for (const [key, labels] of edgeMap.entries()) {
+        const [from, to] = key.split("->");
+        const a = pos[from];
+        const b = pos[to];
+        const text = labels.join(",");
+
+        if (from === to) {
+          drawSelfEdge(svg, a.x, a.y, nodeRadius, text);
+        } else {
+          drawEdge(svg, a.x, a.y, b.x, b.y, nodeRadius, text);
+        }
+      }
+
+      drawStartArrow(svg, pos[dfa.startState].x, pos[dfa.startState].y, nodeRadius);
+
+      for (const s of dfa.states) {
+        const p = pos[s];
+        const circle = createSvg("circle", {
+          cx: p.x,
+          cy: p.y,
+          r: nodeRadius,
+          class: "state" +
+            (dfa.acceptStates.has(s) ? " accept-state" : "") +
+            (s === dfa.startState ? " start-state" : "")
+        });
+        svg.appendChild(circle);
+
+        const text = createSvg("text", {
+          x: p.x,
+          y: p.y,
+          class: "state-label"
+        });
+        text.textContent = s;
+        svg.appendChild(text);
+      }
+
+      const note = createSvg("text", {
+        x: 14,
+        y: height - 16,
+        class: "small-note"
+      });
+      note.textContent = "绿色边框表示接受状态，浅蓝状态表示开始状态";
+      svg.appendChild(note);
+    }
+
+    function drawEdge(svg, x1, y1, x2, y2, r, label) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const ux = dx / len;
+      const uy = dy / len;
+
+      const sx = x1 + ux * r;
+      const sy = y1 + uy * r;
+      const ex = x2 - ux * (r + 6);
+      const ey = y2 - uy * (r + 6);
+
+      const mx = (sx + ex) / 2;
+      const my = (sy + ey) / 2;
+      const nx = -uy;
+      const ny = ux;
+      const bend = 26;
+      const qx = mx + nx * bend;
+      const qy = my + ny * bend;
+
+      const path = createSvg("path", {
+        d: `M ${sx} ${sy} Q ${qx} ${qy} ${ex} ${ey}`,
+        class: "edge"
+      });
+      svg.appendChild(path);
+
+      const text = createSvg("text", {
+        x: clamp(qx, 28, svg.viewBox.baseVal.width - 28),
+        y: clamp(qy - 8, 18, svg.viewBox.baseVal.height - 24),
+        class: "edge-label"
+      });
+      text.textContent = label;
+      svg.appendChild(text);
+    }
+
+    function drawSelfEdge(svg, x, y, r, label) {
+      const path = createSvg("path", {
+        d: `M ${x - r * 0.7} ${y - r} C ${x - r * 2.2} ${y - r * 2.6}, ${x + r * 2.2} ${y - r * 2.6}, ${x + r * 0.7} ${y - r}`,
+        class: "self-edge"
+      });
+      svg.appendChild(path);
+
+      const text = createSvg("text", {
+        x: clamp(x, 28, svg.viewBox.baseVal.width - 28),
+        y: clamp(y - r * 2.45, 18, svg.viewBox.baseVal.height - 24),
+        class: "edge-label"
+      });
+      text.textContent = label;
+      svg.appendChild(text);
+    }
+
+    function drawStartArrow(svg, x, y, r) {
+      const path = createSvg("path", {
+        d: `M ${x - r - 58} ${y} L ${x - r - 8} ${y}`,
+        class: "edge"
+      });
+      svg.appendChild(path);
+
+      const text = createSvg("text", {
+        x: clamp(x - r - 64, 24, svg.viewBox.baseVal.width - 40),
+        y: clamp(y - 12, 16, svg.viewBox.baseVal.height - 24),
+        class: "small-note"
+      });
+      text.textContent = "start";
+      svg.appendChild(text);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function createSvg(tag, attrs) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      for (const k in attrs) {
+        el.setAttribute(k, attrs[k]);
+      }
+      return el;
+    }
+
+    window.addEventListener("resize", () => {
+      if (dfa) drawGraph();
+    });
+
+    buildDFA();
+  </script>
+</body>
+</html>
