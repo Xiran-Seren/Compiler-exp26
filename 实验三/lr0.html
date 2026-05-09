@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LR(0) 项目集规范族可视化</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background: #f4f6fb;
+      color: #222;
+    }
+
+    header {
+      height: 64px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #1f2937;
+      color: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .container {
+      height: calc(100vh - 64px);
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-title {
+      padding: 14px 18px;
+      font-weight: 700;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fafafa;
+    }
+
+    .panel-body {
+      padding: 16px;
+      overflow: auto;
+      flex: 1;
+    }
+
+    textarea {
+      width: 100%;
+      height: 260px;
+      resize: vertical;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .tip {
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #555;
+      background: #f9fafb;
+      border-left: 4px solid #2563eb;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.15s;
+    }
+
+    .primary {
+      background: #2563eb;
+      color: white;
+      flex: 1;
+    }
+
+    .primary:hover {
+      background: #1d4ed8;
+    }
+
+    .secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .secondary:hover {
+      background: #d1d5db;
+    }
+
+    .right {
+      display: grid;
+      grid-template-rows: 48% 52%;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .top-output {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .status {
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .bad {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .state-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .state-title {
+      background: #f3f4f6;
+      padding: 8px 12px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .item {
+      padding: 5px 12px;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+      border-top: 1px solid #f1f1f1;
+      white-space: nowrap;
+    }
+
+    .dot {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    .transition-line {
+      font-family: Consolas, monospace;
+      padding: 6px 0;
+      border-bottom: 1px dashed #e5e7eb;
+      font-size: 14px;
+    }
+
+    .graph-wrap {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background: #f8fafc;
+    }
+
+    svg {
+      min-width: 100%;
+      min-height: 100%;
+    }
+
+    .node {
+      fill: #ffffff;
+      stroke: #2563eb;
+      stroke-width: 2;
+    }
+
+    .node-text {
+      font-size: 13px;
+      font-weight: bold;
+      fill: #1f2937;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    .edge {
+      stroke: #6b7280;
+      stroke-width: 1.8;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .edge-label-bg {
+      fill: #f8fafc;
+      stroke: #e5e7eb;
+    }
+
+    .edge-label {
+      font-size: 12px;
+      fill: #111827;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    .error-list {
+      margin: 0;
+      padding-left: 20px;
+      color: #991b1b;
+      line-height: 1.8;
+    }
+
+    .empty {
+      color: #6b7280;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 1100px) {
+      .container {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .right,
+      .top-output {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+
+      .panel {
+        min-height: 360px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>LR(0) 项目集规范族可视化</h1>
+    <span>Compiler Experiment 3</span>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <div class="panel-title">文法输入</div>
+      <div class="panel-body">
+        <textarea id="grammarInput">E -> E + T | T
+T -> T * F | F
+F -> ( E ) | id</textarea>
+
+        <div class="btn-row">
+          <button class="primary" onclick="runLR0()">生成 LR(0) 项目集</button>
+          <button class="secondary" onclick="loadExample()">示例</button>
+        </div>
+
+        <div class="tip">
+          <b>输入格式：</b><br />
+          1. 每行一个非终结符产生式。<br />
+          2. 使用 <code>-></code> 表示推出。<br />
+          3. 使用 <code>|</code> 表示候选式。<br />
+          4. 每个符号之间建议用空格分隔。<br />
+          5. 页面会自动添加增广文法：<code>S' -> S</code>。
+        </div>
+      </div>
+    </section>
+
+    <section class="right">
+      <div class="top-output">
+        <section class="panel">
+          <div class="panel-title">LR(0) 项目集</div>
+          <div class="panel-body" id="statesOutput">
+            <div class="empty">点击“生成 LR(0) 项目集”后显示结果。</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">转移与冲突判断</div>
+          <div class="panel-body" id="infoOutput">
+            <div class="empty">这里会显示 Goto 转移和 LR(0) 冲突检测结果。</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-title">状态转移图</div>
+        <div class="graph-wrap" id="graphOutput">
+          <svg width="100%" height="100%"></svg>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    let productions = [];
+    let prodMap = new Map();
+    let nonTerminals = new Set();
+    let terminals = new Set();
+    let states = [];
+    let transitions = [];
+    let startSymbol = "";
+    let augmentedStart = "";
+
+    function trim(str) {
+      return str.trim();
+    }
+
+    function splitSymbols(str) {
+      const s = str.trim();
+      if (!s) return ["ε"];
+      return s.split(/\s+/).filter(Boolean);
+    }
+
+    function itemKey(item) {
+      return item.prodId + "@" + item.dot;
+    }
+
+    function setKey(itemSet) {
+      return Array.from(itemSet)
+        .map(itemKey)
+        .sort()
+        .join("|");
+    }
+
+    function addProduction(left, right) {
+      const id = productions.length;
+      productions.push({ left, right });
+      if (!prodMap.has(left)) prodMap.set(left, []);
+      prodMap.get(left).push(id);
+    }
+
+    function parseGrammar(text) {
+      productions = [];
+      prodMap = new Map();
+      nonTerminals = new Set();
+      terminals = new Set();
+      states = [];
+      transitions = [];
+      startSymbol = "";
+
+      const lines = text
+        .split("\n")
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith("#"));
+
+      if (lines.length === 0) {
+        throw new Error("请输入至少一条文法产生式。");
+      }
+
+      for (const line of lines) {
+        const pos = line.indexOf("->");
+        if (pos === -1) {
+          throw new Error("产生式格式错误：" + line);
+        }
+        const left = trim(line.substring(0, pos));
+        if (!left) throw new Error("产生式左部不能为空：" + line);
+        if (!startSymbol) startSymbol = left;
+        nonTerminals.add(left);
+      }
+
+      augmentedStart = startSymbol + "'";
+      while (nonTerminals.has(augmentedStart)) {
+        augmentedStart += "'";
+      }
+      nonTerminals.add(augmentedStart);
+      addProduction(augmentedStart, [startSymbol]);
+
+      for (const line of lines) {
+        const pos = line.indexOf("->");
+        const left = trim(line.substring(0, pos));
+        const rightPart = trim(line.substring(pos + 2));
+        const alternatives = rightPart.split("|").map(trim);
+        for (const alt of alternatives) {
+          addProduction(left, splitSymbols(alt));
+        }
+      }
+
+      for (const p of productions) {
+        for (const sym of p.right) {
+          if (sym === "ε") continue;
+          if (!nonTerminals.has(sym)) terminals.add(sym);
+        }
+      }
+    }
+
+    function closure(inputSet) {
+      const result = new Map();
+      for (const item of inputSet) {
+        result.set(itemKey(item), item);
+      }
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const current = Array.from(result.values());
+
+        for (const item of current) {
+          const p = productions[item.prodId];
+          if (item.dot >= p.right.length) continue;
+
+          const nextSym = p.right[item.dot];
+          if (nonTerminals.has(nextSym)) {
+            const ids = prodMap.get(nextSym) || [];
+            for (const prodId of ids) {
+              const newItem = { prodId, dot: 0 };
+              const key = itemKey(newItem);
+              if (!result.has(key)) {
+                result.set(key, newItem);
+                changed = true;
+              }
+            }
+          }
+        }
+      }
+
+      return new Set(result.values());
+    }
+
+    function gotoState(itemSet, symbol) {
+      const moved = [];
+
+      for (const item of itemSet) {
+        const p = productions[item.prodId];
+        if (item.dot < p.right.length && p.right[item.dot] === symbol) {
+          moved.push({ prodId: item.prodId, dot: item.dot + 1 });
+        }
+      }
+
+      if (moved.length === 0) return new Set();
+      return closure(moved);
+    }
+
+    function buildCanonicalCollection() {
+      const I0 = closure([{ prodId: 0, dot: 0 }]);
+      states.push(I0);
+
+      const stateIndex = new Map();
+      stateIndex.set(setKey(I0), 0);
+
+      const queue = [0];
+      const symbols = Array.from(new Set([...terminals, ...nonTerminals])).filter(s => s !== "ε");
+
+      while (queue.length > 0) {
+        const i = queue.shift();
+
+        for (const sym of symbols) {
+          const next = gotoState(states[i], sym);
+          if (next.size === 0) continue;
+
+          const key = setKey(next);
+          let j;
+          if (stateIndex.has(key)) {
+            j = stateIndex.get(key);
+          } else {
+            j = states.length;
+            states.push(next);
+            stateIndex.set(key, j);
+            queue.push(j);
+          }
+
+          transitions.push({ from: i, symbol: sym, to: j });
+        }
+      }
+    }
+
+    function formatItem(item) {
+      const p = productions[item.prodId];
+      let html = `${escapeHtml(p.left)} -> `;
+
+      for (let i = 0; i <= p.right.length; i++) {
+        if (i === item.dot) html += `<span class="dot">·</span> `;
+        if (i < p.right.length) html += escapeHtml(p.right[i]) + " ";
+      }
+      return html;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function renderStates() {
+      const box = document.getElementById("statesOutput");
+      let html = "";
+
+      states.forEach((state, index) => {
+        html += `<div class="state-card">`;
+        html += `<div class="state-title"><span>I${index}</span><span>${state.size} items</span></div>`;
+        Array.from(state)
+          .sort((a, b) => a.prodId === b.prodId ? a.dot - b.dot : a.prodId - b.prodId)
+          .forEach(item => {
+            html += `<div class="item">${formatItem(item)}</div>`;
+          });
+        html += `</div>`;
+      });
+
+      box.innerHTML = html;
+    }
+
+    function detectConflicts() {
+      const conflicts = [];
+
+      states.forEach((state, index) => {
+        let reduceCount = 0;
+        let shiftCount = 0;
+
+        for (const item of state) {
+          const p = productions[item.prodId];
+          if (item.dot >= p.right.length) {
+            reduceCount++;
+          } else {
+            shiftCount++;
+          }
+        }
+
+        if (reduceCount > 0 && shiftCount > 0) {
+          conflicts.push(`I${index} 存在移进-归约冲突`);
+        }
+        if (reduceCount > 1) {
+          conflicts.push(`I${index} 存在归约-归约冲突`);
+        }
+      });
+
+      return conflicts;
+    }
+
+    function renderInfo() {
+      const box = document.getElementById("infoOutput");
+      const conflicts = detectConflicts();
+
+      let html = "";
+      if (conflicts.length === 0) {
+        html += `<div class="status ok">判断结果：该文法是 LR(0) 文法</div>`;
+      } else {
+        html += `<div class="status bad">判断结果：该文法不是 LR(0) 文法</div>`;
+        html += `<ul class="error-list">`;
+        conflicts.forEach(c => html += `<li>${escapeHtml(c)}</li>`);
+        html += `</ul>`;
+      }
+
+      html += `<h3>Goto 转移</h3>`;
+      if (transitions.length === 0) {
+        html += `<div class="empty">没有状态转移。</div>`;
+      } else {
+        transitions
+          .sort((a, b) => a.from === b.from ? a.symbol.localeCompare(b.symbol) : a.from - b.from)
+          .forEach(t => {
+            html += `<div class="transition-line">I${t.from} -- ${escapeHtml(t.symbol)} --> I${t.to}</div>`;
+          });
+      }
+
+      box.innerHTML = html;
+    }
+
+    function renderGraph() {
+      const wrap = document.getElementById("graphOutput");
+      const count = states.length;
+      const width = Math.max(900, count * 120);
+      const height = Math.max(360, Math.ceil(count / 6) * 150 + 100);
+      const radius = 28;
+      const cols = Math.max(1, Math.floor(width / 150));
+      const positions = [];
+
+      for (let i = 0; i < count; i++) {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        positions.push({
+          x: 80 + col * 140,
+          y: 80 + row * 140
+        });
+      }
+
+      let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+      svg += `
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#6b7280"></path>
+          </marker>
+        </defs>
+      `;
+
+      const grouped = new Map();
+      for (const t of transitions) {
+        const key = `${t.from}->${t.to}`;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(t.symbol);
+      }
+
+      for (const [key, symbols] of grouped) {
+        const [from, to] = key.split("->").map(Number);
+        const a = positions[from];
+        const b = positions[to];
+        const label = symbols.join(", ");
+
+        if (from === to) {
+          const lx = a.x;
+          const ly = a.y - 52;
+          svg += `<path class="edge" d="M ${a.x - 10} ${a.y - radius} C ${a.x - 60} ${a.y - 90}, ${a.x + 60} ${a.y - 90}, ${a.x + 10} ${a.y - radius}" />`;
+          svg += `<rect class="edge-label-bg" x="${lx - label.length * 4 - 8}" y="${ly - 10}" width="${label.length * 8 + 16}" height="20" rx="6"></rect>`;
+          svg += `<text class="edge-label" x="${lx}" y="${ly}">${escapeHtml(label)}</text>`;
+          continue;
+        }
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const sx = a.x + dx / len * radius;
+        const sy = a.y + dy / len * radius;
+        const ex = b.x - dx / len * radius;
+        const ey = b.y - dy / len * radius;
+        const mx = (sx + ex) / 2;
+        const my = (sy + ey) / 2;
+
+        svg += `<line class="edge" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}"></line>`;
+        svg += `<rect class="edge-label-bg" x="${mx - label.length * 4 - 8}" y="${my - 10}" width="${label.length * 8 + 16}" height="20" rx="6"></rect>`;
+        svg += `<text class="edge-label" x="${mx}" y="${my}">${escapeHtml(label)}</text>`;
+      }
+
+      for (let i = 0; i < count; i++) {
+        const p = positions[i];
+        svg += `<circle class="node" cx="${p.x}" cy="${p.y}" r="${radius}"></circle>`;
+        svg += `<text class="node-text" x="${p.x}" y="${p.y}">I${i}</text>`;
+      }
+
+      svg += `</svg>`;
+      wrap.innerHTML = svg;
+    }
+
+    function runLR0() {
+      try {
+        const input = document.getElementById("grammarInput").value;
+        parseGrammar(input);
+        buildCanonicalCollection();
+        renderStates();
+        renderInfo();
+        renderGraph();
+      } catch (err) {
+        document.getElementById("statesOutput").innerHTML = `<div class="status bad">${escapeHtml(err.message)}</div>`;
+        document.getElementById("infoOutput").innerHTML = `<div class="empty">请修正文法输入后重新生成。</div>`;
+        document.getElementById("graphOutput").innerHTML = `<svg width="100%" height="100%"></svg>`;
+      }
+    }
+
+    function loadExample() {
+      document.getElementById("grammarInput").value = `E -> E + T | T
+T -> T * F | F
+F -> ( E ) | id`;
+      runLR0();
+    }
+
+    runLR0();
+  </script>
+</body>
+</html>
