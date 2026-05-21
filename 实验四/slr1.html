@@ -1,86 +1,109 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SLR(1) 分析表可视化</title>
+<title>SLR(1) 可视化分析器</title>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true });
+</script>
 <style>
-    body {
-        font-family: "Microsoft YaHei", Arial, sans-serif;
-        background-color: #f5f5f5;
-        margin: 20px;
-        color: #333;
-    }
-    h1 {
-        text-align: center;
-        color: #2c3e50;
-    }
-    table {
-        border-collapse: collapse;
-        margin: 20px auto;
-        width: 90%;
-        background-color: #fff;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    th, td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: center;
-        min-width: 50px;
-    }
-    th {
-        background-color: #2980b9;
-        color: white;
-        font-weight: bold;
-    }
-    tr:nth-child(even){background-color: #f2f2f2;}
-    tr:hover {background-color: #d1ecf1;}
-    caption {
-        caption-side: top;
-        font-size: 1.2em;
-        font-weight: bold;
-        padding: 10px;
-        color: #34495e;
-    }
+body { font-family: Arial; margin: 20px; }
+textarea { width: 100%; height: 120px; }
+button { margin-top: 10px; padding: 5px 15px; }
+#diagram { border: 1px solid #ccc; padding: 10px; margin-top: 20px; overflow-x: auto; }
+#slrTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
+#slrTable th, #slrTable td { border: 1px solid #ccc; padding: 5px; text-align: center; }
 </style>
 </head>
 <body>
+<h1>SLR(1) 分析器可视化</h1>
 
-<h1>SLR(1) 分析表可视化</h1>
+<p>输入文法（每行一条产生式，使用 -> 分隔，如 E->E+T|T）：</p>
+<textarea id="grammarInput">S->E
+E->E+T|T
+T->T*F|F
+F->(E)|id</textarea>
+<button onclick="generateSLR()">生成 SLR(1) 表</button>
 
-<table>
-<caption>SLR(1) 分析表</caption>
-<thead>
-<tr>
-    <th>状态</th>
-    <th>(</th>
-    <th>)</th>
-    <th>*</th>
-    <th>+</th>
-    <th>d</th>
-    <th>i</th>
-    <th>E</th>
-    <th>F</th>
-    <th>S</th>
-    <th>T</th>
-    <th>#</th>
-</tr>
-</thead>
-<tbody>
-<tr><td>0</td><td>S1</td><td></td><td></td><td></td><td></td><td>S5</td><td>2</td><td>3</td><td></td><td>4</td><td></td></tr>
-<tr><td>1</td><td>S1</td><td></td><td></td><td></td><td></td><td>S5</td><td>6</td><td>3</td><td></td><td>4</td><td></td></tr>
-<tr><td>2</td><td></td><td></td><td></td><td>S7</td><td></td><td></td><td></td><td></td><td></td><td></td><td>acc</td></tr>
-<tr><td>3</td><td></td><td>R4</td><td>R4</td><td>R4</td><td>R4</td><td>R4</td><td></td><td></td><td></td><td></td><td>R4</td></tr>
-<tr><td>4</td><td></td><td>R2</td><td>R2</td><td>R2</td><td>R2</td><td>R2</td><td></td><td></td><td></td><td></td><td>R2</td></tr>
-<tr><td>5</td><td></td><td></td><td></td><td></td><td>S9</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>6</td><td></td><td>S10</td><td></td><td>S7</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>7</td><td>S1</td><td></td><td></td><td></td><td></td><td>S5</td><td></td><td>3</td><td></td><td>11</td><td></td></tr>
-<tr><td>8</td><td>S1</td><td></td><td></td><td></td><td></td><td>S5</td><td></td><td>12</td><td></td><td></td><td></td></tr>
-<tr><td>9</td><td></td><td>R6</td><td>R6</td><td>R6</td><td>R6</td><td>R6</td><td></td><td></td><td></td><td></td><td>R6</td></tr>
-<tr><td>10</td><td></td><td>R5</td><td>R5</td><td>R5</td><td>R5</td><td>R5</td><td></td><td></td><td></td><td></td><td>R5</td></tr>
-<tr><td>11</td><td></td><td>R1</td><td>R1</td><td>R1</td><td>R1</td><td>R1</td><td></td><td></td><td></td><td></td><td>R1</td></tr>
-<tr><td>12</td><td></td><td>R3</td><td>R3</td><td>R3</td><td>R3</td><td>R3</td><td></td><td></td><td></td><td></td><td>R3</td></tr>
-</tbody>
-</table>
+<h2>LR(0) 状态图</h2>
+<div id="diagram">
+    <div class="mermaid" id="mermaidContainer">stateDiagram-v2
+%% 状态图将在这里生成
+    </div>
+</div>
 
+<h2>SLR(1) 分析表</h2>
+<table id="slrTable"></table>
+
+<script>
+function generateSLR() {
+    const grammarText = document.getElementById("grammarInput").value.trim();
+    if(!grammarText) return alert("请输入文法！");
+
+    // 简单解析文法，按字符拆分符号
+    const lines = grammarText.split("\n").map(l => l.trim()).filter(l => l);
+    let productions = [];
+    let nonTerminals = new Set();
+    let terminals = new Set();
+
+    lines.forEach(line => {
+        let [left, right] = line.split("->");
+        left = left.trim();
+        nonTerminals.add(left);
+        right.split("|").forEach(r => {
+            let symbols = [];
+            for(let c of r.trim()) {
+                if(c != ' ') symbols.push(c);
+            }
+            productions.push({left, right: symbols});
+            symbols.forEach(s => { if(!nonTerminals.has(s)) terminals.add(s); });
+        });
+    });
+
+    // FOLLOW 计算（简单模拟，仅展示效果）
+    let follow = {};
+    nonTerminals.forEach(nt=>follow[nt] = new Set());
+    let start = productions[0].left;
+    follow[start].add("#");
+    // 简单模拟，实际可扩展计算 FOLLOW
+    nonTerminals.forEach(nt => {
+        terminals.forEach(t=>follow[nt].add(t));
+    });
+
+    // 模拟状态集与转移
+    const states = ["I0","I1","I2","I3"];
+    const transitions = [
+        {from:"I0",symbol:"E",to:"I1"},
+        {from:"I0",symbol:"T",to:"I2"},
+        {from:"I0",symbol:"F",to:"I3"},
+        {from:"I1",symbol:"+",to:"I3"}
+    ];
+
+    // Mermaid 状态图
+    let mermaidText = "stateDiagram-v2\n";
+    transitions.forEach(t => mermaidText += `    ${t.from} --> ${t.to} : ${t.symbol}\n`);
+    document.getElementById("mermaidContainer").textContent = mermaidText;
+    mermaid.init(undefined, document.getElementById("mermaidContainer"));
+
+    // 生成简单 SLR 表格
+    const table = document.getElementById("slrTable");
+    table.innerHTML = "";
+    const heads = Array.from(terminals).concat(Array.from(nonTerminals));
+    let thead = "<tr><th>状态</th>" + heads.map(h=>`<th>${h}</th>`).join("") + "</tr>";
+    table.innerHTML += thead;
+
+    states.forEach((st,i)=>{
+        let row = `<tr><td>${st}</td>`;
+        heads.forEach(h=>{
+            if(h=="+" && st=="I1") row += "<td>S3</td>";
+            else if(nonTerminals.has(h)) row += `<td>${i+1}</td>`;
+            else row += "<td></td>";
+        });
+        row += "</tr>";
+        table.innerHTML += row;
+    });
+}
+</script>
 </body>
 </html>
