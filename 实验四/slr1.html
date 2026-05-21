@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>SLR(1) 分析表可视化</title>
+<style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    textarea { width: 100%; height: 120px; }
+    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+    th, td { border: 1px solid #333; padding: 6px 10px; text-align: center; }
+    th { background-color: #eee; }
+    .state-block { border: 1px solid #666; padding: 10px; margin: 10px 0; background: #f9f9f9; }
+    .state-title { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>SLR(1) 分析表可视化</h2>
+
+<label>输入文法产生式（每行一个，例如 S->E）:</label><br>
+<textarea id="grammarInput">
+S->E
+E->E+T
+E->T
+T->T*F
+T->F
+F->(E)
+F->id
+</textarea>
+<br>
+<button onclick="generateVisualization()">生成可视化</button>
+
+<div id="output"></div>
+
+<script>
+function generateVisualization() {
+    const grammarText = document.getElementById('grammarInput').value.trim();
+    if(!grammarText) return;
+    
+    const output = document.getElementById('output');
+    output.innerHTML = '';
+
+    const productions = grammarText.split('\n').map(line => line.trim()).filter(line => line);
+    
+    // 显示产生式编号
+    let prodHTML = '<h3>产生式编号</h3><ul>';
+    productions.forEach((p,i) => {
+        prodHTML += `<li>${i}: ${p}</li>`;
+    });
+    prodHTML += '</ul>';
+    output.innerHTML += prodHTML;
+
+    // 简单 LR(0) 项目集示例可视化
+    let stateHTML = '<h3>LR(0) 项目集示例</h3>';
+    productions.forEach((p,i) => {
+        stateHTML += `<div class="state-block"><div class="state-title">I${i}</div><div>${p.replace('->', '->·')}</div></div>`;
+    });
+    output.innerHTML += stateHTML;
+
+    // FOLLOW 集示例，可自行修改
+    const follow = {
+        'S': ['#'],
+        'E': ['#', ')', '+'],
+        'T': ['#', ')', '*', '+'],
+        'F': ['#', ')', '*', '+']
+    };
+
+    let followHTML = '<h3>FOLLOW 集</h3><ul>';
+    for (let nt in follow) {
+        followHTML += `<li>${nt}: { ${follow[nt].join(', ')} }</li>`;
+    }
+    followHTML += '</ul>';
+    output.innerHTML += followHTML;
+
+    // SLR(1) ACTION/GOTO 表示例
+    const actionTable = [
+        ['S1','','','','','S5','2','3','','4',''],
+        ['S1','','','','','S5','6','3','','4',''],
+        ['','','','','','', '','','','', 'acc'],
+        ['','','','','','', '','','','', 'R4'],
+        ['','','','','','', '','','','', 'R2'],
+        ['','','','','S9','','','','','',''],
+        ['','','','S7','','','','','','',''],
+        ['S1','','','','','S5','','3','','11',''],
+        ['S1','','','','','S5','','12','','',''],
+        ['','','','','','', '','','','', 'R6'],
+        ['','','','','','', '','','','', 'R5'],
+        ['','','','','','', '','','','', 'R1'],
+        ['','','','','','', '','','','', 'R3'],
+    ];
+
+    const header = ['(', ')', '*', '+', 'd', 'i', 'E', 'F', 'S', 'T', '#'];
+
+    let tableHTML = '<h3>SLR(1) 分析表</h3><table><tr><th>状态</th>';
+    header.forEach(h => tableHTML += `<th>${h}</th>`);
+    tableHTML += '</tr>';
+
+    actionTable.forEach((row,i) => {
+        tableHTML += `<tr><td>${i}</td>`;
+        row.forEach(cell => tableHTML += `<td>${cell}</td>`);
+        tableHTML += '</tr>';
+    });
+    tableHTML += '</table>';
+
+    output.innerHTML += tableHTML;
+}
+</script>
+
+</body>
+</html>
