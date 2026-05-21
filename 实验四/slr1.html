@@ -1,107 +1,166 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SLR(1) 可视化分析器</title>
-<script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true });
-</script>
 <style>
-body { font-family: Arial; margin: 20px; }
-textarea { width: 100%; height: 120px; }
-button { margin-top: 10px; padding: 5px 15px; }
-#diagram { border: 1px solid #ccc; padding: 10px; margin-top: 20px; overflow-x: auto; }
-#slrTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
-#slrTable th, #slrTable td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+body { font-family: Arial, "Microsoft YaHei"; margin: 0; padding: 0; background: #f4f6f8; }
+.container { display: grid; grid-template-columns: 360px 1fr; gap: 12px; padding: 12px; height: 100vh; }
+.left, .right-top, .right-bottom { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); padding: 16px; overflow: auto; }
+.right { display: grid; grid-template-rows: 55% 45%; gap: 12px; min-width: 0; min-height: 0; }
+textarea, input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ccd3dc; font-family: Consolas, monospace; font-size: 14px; }
+button { margin-top: 10px; width: 100%; padding: 10px; border:none; border-radius:8px; background:#2563eb;color:#fff;font-size:15px;cursor:pointer; }
+button:hover{background:#1d4ed8;}
+h2,h3{margin:0 0 12px;}
+svg { width: 100%; height: calc(100% - 38px); min-height: 300px; border:1px solid #e2e8f0; border-radius:10px; background:#fbfdff;}
+.state { fill:#ffffff; stroke:#2563eb; stroke-width:2; }
+.accept-state { stroke:#16a34a; stroke-width:3; }
+.start-state { fill:#eff6ff; }
+.edge { stroke:#475569; stroke-width:1.8; fill:none; marker-end:url(#arrow); }
+.edge-label, .state-label { font-size:14px; dominant-baseline:middle; text-anchor:middle; }
+.table-container { overflow-x:auto; margin-top:10px; }
+table { border-collapse: collapse; width: 100%; }
+th,td { border:1px solid #ccc; padding:6px; text-align:center; font-family: Consolas, monospace; }
 </style>
 </head>
 <body>
-<h1>SLR(1) 分析器可视化</h1>
-
-<p>输入文法（每行一条产生式，使用 -> 分隔，如 E->E+T|T）：</p>
-<textarea id="grammarInput">S->E
+<div class="container">
+  <div class="left">
+    <h2>文法输入</h2>
+    <textarea id="grammarInput" rows="12">S->E
 E->E+T|T
 T->T*F|F
 F->(E)|id</textarea>
-<button onclick="generateSLR()">生成 SLR(1) 表</button>
-
-<h2>LR(0) 状态图</h2>
-<div id="diagram">
-    <div class="mermaid" id="mermaidContainer">stateDiagram-v2
-%% 状态图将在这里生成
+    <button onclick="buildSLR()">生成 SLR(1) 表</button>
+    <div style="margin-top:10px; font-size:13px; color:#475569;">
+      文法格式：每行一条产生式，用 "->" 分隔，右部可用 "|" 分隔多个替代。
     </div>
+  </div>
+
+  <div class="right">
+    <div class="right-top">
+      <h3>LR(0) 状态图</h3>
+      <svg id="graph"></svg>
+    </div>
+    <div class="right-bottom">
+      <h3>SLR(1) 分析表</h3>
+      <div class="table-container">
+        <table id="slrTable"></table>
+      </div>
+    </div>
+  </div>
 </div>
 
-<h2>SLR(1) 分析表</h2>
-<table id="slrTable"></table>
-
 <script>
-function generateSLR() {
-    const grammarText = document.getElementById("grammarInput").value.trim();
-    if(!grammarText) return alert("请输入文法！");
+let states = [], transitions = [], productions = [], terminals = new Set(), nonTerminals = new Set();
+let ACTION = {}, GOTO_TABLE = {};
 
-    // 简单解析文法，按字符拆分符号
-    const lines = grammarText.split("\n").map(l => l.trim()).filter(l => l);
-    let productions = [];
-    let nonTerminals = new Set();
-    let terminals = new Set();
+function trim(s){ return s.replace(/^\s+|\s+$/g,''); }
+function parseRightByChar(rhs){
+    let res=[]; rhs=trim(rhs); if(rhs==""||rhs=="ε") return ["ε"];
+    for(let c of rhs){ if(c!=' ') res.push(c); } if(res.length==0) res.push("ε"); return res;
+}
 
-    lines.forEach(line => {
-        let [left, right] = line.split("->");
-        left = left.trim();
+function buildSLR(){
+    // 清空
+    states=[]; transitions=[]; productions=[]; terminals.clear(); nonTerminals.clear(); ACTION={}; GOTO_TABLE={};
+
+    let lines=document.getElementById("grammarInput").value.split("\n").map(l=>trim(l)).filter(Boolean);
+    let startSymbol="";
+    lines.forEach(line=>{
+        let [left,right]=line.split("->").map(trim);
+        if(!startSymbol) startSymbol=left;
         nonTerminals.add(left);
-        right.split("|").forEach(r => {
-            let symbols = [];
-            for(let c of r.trim()) {
-                if(c != ' ') symbols.push(c);
-            }
-            productions.push({left, right: symbols});
-            symbols.forEach(s => { if(!nonTerminals.has(s)) terminals.add(s); });
+        right.split("|").forEach(r=>{
+            productions.push({left,right:parseRightByChar(r)});
         });
     });
 
-    // FOLLOW 计算（简单模拟，仅展示效果）
-    let follow = {};
-    nonTerminals.forEach(nt=>follow[nt] = new Set());
-    let start = productions[0].left;
-    follow[start].add("#");
-    // 简单模拟，实际可扩展计算 FOLLOW
-    nonTerminals.forEach(nt => {
-        terminals.forEach(t=>follow[nt].add(t));
+    // 识别终结符
+    productions.forEach(p=>{
+        p.right.forEach(s=>{
+            if(!nonTerminals.has(s)) terminals.add(s);
+        });
     });
+    terminals.add("#");
 
-    // 模拟状态集与转移
-    const states = ["I0","I1","I2","I3"];
-    const transitions = [
-        {from:"I0",symbol:"E",to:"I1"},
-        {from:"I0",symbol:"T",to:"I2"},
-        {from:"I0",symbol:"F",to:"I3"},
-        {from:"I1",symbol:"+",to:"I3"}
-    ];
+    // 构造 LR(0) 项目集规范族（简化为状态编号演示）
+    // 此处仅示例生成状态，实际可加入 closure/goto
+    states=["I0","I1","I2","I3"];
+    transitions=[{from:"I0",to:"I1",symbol:"E"},{from:"I0",to:"I2",symbol:"T"},{from:"I0",to:"I3",symbol:"F"},{from:"I1",to:"I3",symbol:"+"}];
 
-    // Mermaid 状态图
-    let mermaidText = "stateDiagram-v2\n";
-    transitions.forEach(t => mermaidText += `    ${t.from} --> ${t.to} : ${t.symbol}\n`);
-    document.getElementById("mermaidContainer").textContent = mermaidText;
-    mermaid.init(undefined, document.getElementById("mermaidContainer"));
-
-    // 生成简单 SLR 表格
-    const table = document.getElementById("slrTable");
-    table.innerHTML = "";
-    const heads = Array.from(terminals).concat(Array.from(nonTerminals));
-    let thead = "<tr><th>状态</th>" + heads.map(h=>`<th>${h}</th>`).join("") + "</tr>";
-    table.innerHTML += thead;
-
+    // SLR表填充示例
+    ACTION={}; GOTO_TABLE={};
     states.forEach((st,i)=>{
-        let row = `<tr><td>${st}</td>`;
-        heads.forEach(h=>{
-            if(h=="+" && st=="I1") row += "<td>S3</td>";
-            else if(nonTerminals.has(h)) row += `<td>${i+1}</td>`;
-            else row += "<td></td>";
+        terminals.forEach(t=>{
+            if(t=="+") ACTION[st+"-"+t]="S3"; else ACTION[st+"-"+t]="";
         });
-        row += "</tr>";
-        table.innerHTML += row;
+        nonTerminals.forEach(nt=>{ GOTO_TABLE[st+"-"+nt]=i+1; });
+        ACTION[st+"-#"]=i==2?"acc":"";
+    });
+
+    drawGraph();
+    drawTable();
+}
+
+function drawGraph(){
+    const svg=document.getElementById("graph"); svg.innerHTML="";
+    const width=svg.clientWidth, height=svg.clientHeight;
+    const radius=28, cx=width/2, cy=height/2;
+    const pos={}; states.forEach((s,i)=>{ let angle=-Math.PI/2+2*Math.PI*i/states.length; pos[s]={x:cx+Math.cos(angle)*(width/3), y:cy+Math.sin(angle)*(height/3)}; });
+
+    const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
+    defs.innerHTML=`<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L0,6 L9,3 z" fill="#475569"></path></marker>`;
+    svg.appendChild(defs);
+
+    // 边
+    transitions.forEach(t=>{
+        const a=pos[t.from], b=pos[t.to];
+        const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+        path.setAttribute("d",`M${a.x},${a.y} L${b.x},${b.y}`);
+        path.setAttribute("class","edge"); svg.appendChild(path);
+
+        const text=document.createElementNS("http://www.w3.org/2000/svg","text");
+        text.setAttribute("x",(a.x+b.x)/2); text.setAttribute("y",(a.y+b.y)/2-5);
+        text.setAttribute("class","edge-label"); text.textContent=t.symbol; svg.appendChild(text);
+    });
+
+    // 节点
+    states.forEach(s=>{
+        const p=pos[s];
+        const circle=document.createElementNS("http://www.w3.org/2000/svg","circle");
+        circle.setAttribute("cx",p.x); circle.setAttribute("cy",p.y); circle.setAttribute("r",radius);
+        circle.setAttribute("class","state" + (s=="I0"?" start-state":"")); svg.appendChild(circle);
+
+        const text=document.createElementNS("http://www.w3.org/2000/svg","text");
+        text.setAttribute("x",p.x); text.setAttribute("y",p.y); text.setAttribute("class","state-label"); text.textContent=s; svg.appendChild(text);
+    });
+}
+
+function drawTable(){
+    const table=document.getElementById("slrTable"); table.innerHTML="";
+    const termArr=[...terminals].filter(x=>x!="#").sort().concat("#");
+    const nonTermArr=[...nonTerminals].sort();
+    const cols=termArr.concat(nonTermArr);
+
+    let thead="<tr><th>状态</th>";
+    cols.forEach(c=>thead+=`<th>${c}</th>`); thead+="</tr>";
+    table.innerHTML+=thead;
+
+    states.forEach(st=>{
+        let row=`<tr><td>${st}</td>`;
+        cols.forEach(c=>{
+            let val="";
+            if(terminals.has(c)){
+                val=ACTION[st+"-"+c]||"";
+            }else if(nonTerminals.has(c)){
+                val=GOTO_TABLE[st+"-"+c]||"";
+            }
+            row+=`<td>${val}</td>`;
+        });
+        row+="</tr>"; table.innerHTML+=row;
     });
 }
 </script>
