@@ -6,343 +6,223 @@
 <title>实验六：四元式中间代码可视化</title>
 <style>
 body { font-family: Arial, "Microsoft YaHei"; margin: 0; padding: 0; background: #f4f6f8; color:#0f172a; }
-.container { display: grid; grid-template-columns: 380px 1fr; gap: 12px; padding: 12px; height: 100vh; box-sizing: border-box; }
+.container { display: grid; grid-template-columns: 420px 1fr; gap: 12px; padding: 12px; height: 100vh; box-sizing: border-box; }
 .left, .panel { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.08); padding:16px; overflow:auto; }
-.right { display:grid; grid-template-rows: 52% 48%; gap:12px; min-width:0; min-height:0; }
-.bottom { display:grid; grid-template-columns: 1fr 1fr; gap:12px; min-height:0; }
+.right { display:grid; grid-template-rows:48% 52%; gap:12px; min-width:0; min-height:0; }
+.bottom { display:grid; grid-template-columns:1fr 1fr; gap:12px; min-height:0; }
 h2,h3 { margin:0 0 12px; }
-textarea { width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid #ccd3dc; font-family:Consolas, monospace; font-size:13px; resize:vertical; }
+textarea { width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid #ccd3dc; font-family:Consolas, "Microsoft YaHei", monospace; font-size:13px; resize:vertical; }
 button { margin-top:8px; width:100%; padding:10px; border:none; border-radius:8px; background:#2563eb; color:#fff; font-size:15px; cursor:pointer; }
 button:hover { background:#1d4ed8; }
 .btn-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.hint { margin-top:10px; font-size:13px; color:#475569; line-height:1.6; }
-.metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0 12px; }
+.hint { margin:10px 0; font-size:13px; color:#475569; line-height:1.6; }
+.metric-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
 .metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; }
 .metric b { display:block; color:#2563eb; font-size:20px; }
 svg { width:100%; height:calc(100% - 42px); min-height:280px; border:1px solid #e2e8f0; border-radius:10px; background:#fbfdff; }
-.quad-node { fill:#ffffff; stroke:#2563eb; stroke-width:2; }
+.quad-node { fill:#fff; stroke:#2563eb; stroke-width:2; }
 .jump-node { fill:#eff6ff; stroke:#7c3aed; stroke-width:2; }
 .label-node { fill:#f0fdf4; stroke:#16a34a; stroke-width:2; }
 .edge { stroke:#64748b; stroke-width:1.6; fill:none; marker-end:url(#arrow); }
 .jump-edge { stroke:#7c3aed; stroke-width:2; fill:none; marker-end:url(#arrowPurple); stroke-dasharray:5 4; }
 .node-label { text-anchor:middle; dominant-baseline:middle; font-family:Consolas, "Cascadia Mono", "Microsoft YaHei", monospace; }
-.node-op { font-size:13px; font-weight:700; fill:#0f172a; }
+.node-op { font-size:13px; font-weight:700; }
 .node-args { font-size:11px; fill:#475569; }
-.edge-label { font-size:12px; text-anchor:middle; fill:#475569; font-family:Consolas, "Cascadia Mono", "Microsoft YaHei", monospace; paint-order:stroke; stroke:#fbfdff; stroke-width:4px; }
-.table-container { overflow:auto; height:calc(100% - 36px); }
+.edge-label { font-size:12px; text-anchor:middle; fill:#475569; font-family:Consolas, "Microsoft YaHei", monospace; paint-order:stroke; stroke:#fbfdff; stroke-width:4px; }
+.table-container { overflow:auto; height:calc(100% - 38px); }
 table { border-collapse:collapse; width:100%; font-size:13px; }
 th,td { border:1px solid #cbd5e1; padding:6px; text-align:center; font-family:Consolas, monospace; white-space:nowrap; }
 th { background:#eff6ff; color:#1e3a8a; position:sticky; top:0; }
-.tree { font-family:Consolas, monospace; white-space:pre; font-size:13px; line-height:1.45; background:#fbfdff; border:1px solid #e2e8f0; border-radius:10px; padding:10px; height:calc(100% - 58px); overflow:auto; }
+.tree,.errors { font-family:Consolas, "Microsoft YaHei", monospace; white-space:pre-wrap; font-size:13px; line-height:1.45; background:#fbfdff; border:1px solid #e2e8f0; border-radius:10px; padding:10px; overflow:auto; }
+.tree { height:42%; }
+.errors { height:28%; margin-top:10px; }
+.tabs { display:flex; gap:8px; margin-bottom:10px; }
+.tab { width:auto; margin:0; padding:7px 12px; background:#e2e8f0; color:#0f172a; }
+.tab.active { background:#2563eb; color:#fff; }
 .tag { display:inline-block; padding:2px 7px; border-radius:999px; background:#e0f2fe; color:#0369a1; font-size:12px; margin-left:6px; }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="left">
-    <h2>实验六可视化<span class="tag">四元式</span></h2>
-    <div class="hint">
-      本页面用于展示实验六输出：四元式表、简化控制流图、AST 文本树和符号表。
-      可以选择内置样例，也可以把 `build/ir/quadruples.tsv` 内容复制到下方再生成。
-    </div>
-
-    <div class="metric-grid">
-      <div class="metric"><span>四元式数量</span><b id="quadCount">0</b></div>
-      <div class="metric"><span>临时变量</span><b id="tempCount">0</b></div>
-      <div class="metric"><span>标签数量</span><b id="labelCount">0</b></div>
-      <div class="metric"><span>函数数量</span><b id="funcCount">0</b></div>
-    </div>
-
-    <h3>样例</h3>
+    <h2>实验六可视化<span class="tag">纯前端 JS</span></h2>
+    <div class="hint">参考 model.html 的方式，本页面在浏览器中直接完成词法分析、简化语法/语义分析、符号表、AST、错误分析和四元式生成，不依赖 Python 后端，可直接部署到 GitHub Pages。</div>
+    <h3>grammar.txt</h3>
+    <textarea id="grammarInput" rows="10"></textarea>
+    <h3 style="margin-top:12px;">源程序 .src</h3>
+    <textarea id="sourceInput" rows="14"></textarea>
     <div class="btn-row">
-      <button onclick="loadSample('basic')">基本表达式</button>
-      <button onclick="loadSample('arrayFor')">for + 二维数组</button>
+      <button onclick="loadSample('basic')">基本样例</button>
+      <button onclick="loadSample('forArray')">for + 数组</button>
     </div>
-    <button onclick="loadSample('functionCall')">函数调用样例</button>
-
-    <h3 style="margin-top:16px;">四元式 TSV</h3>
-    <textarea id="quadInput" rows="13"></textarea>
-
-    <h3 style="margin-top:12px;">AST 文本树</h3>
-    <textarea id="astInput" rows="8"></textarea>
-
-    <h3 style="margin-top:12px;">符号表 TSV</h3>
-    <textarea id="symInput" rows="8"></textarea>
-
-    <button onclick="renderAll()">生成可视化</button>
+    <div class="btn-row">
+      <button onclick="loadSample('error')">错误样例</button>
+      <button onclick="runCompiler()">运行并可视化</button>
+    </div>
+    <div class="hint" id="status">当前为浏览器内 JS 实现，SLR 表为根据 grammar 生成的文法概览表；四元式由 JS 递归下降分析器生成。</div>
   </div>
 
   <div class="right">
     <div class="panel">
       <h3>四元式控制流图</h3>
+      <div class="metric-grid">
+        <div class="metric"><span>四元式</span><b id="quadCount">0</b></div>
+        <div class="metric"><span>临时变量</span><b id="tempCount">0</b></div>
+        <div class="metric"><span>标签</span><b id="labelCount">0</b></div>
+        <div class="metric"><span>函数</span><b id="funcCount">0</b></div>
+      </div>
       <svg id="graph"></svg>
     </div>
     <div class="bottom">
       <div class="panel">
-        <h3>四元式表</h3>
-        <div class="table-container"><table id="quadTable"></table></div>
+        <div class="tabs">
+          <button class="tab active" onclick="showTable('quad', this)">四元式</button>
+          <button class="tab" onclick="showTable('token', this)">Token</button>
+          <button class="tab" onclick="showTable('grammar', this)">Grammar</button>
+        </div>
+        <div class="table-container"><table id="mainTable"></table></div>
       </div>
       <div class="panel">
-        <h3>AST 与符号表</h3>
-        <div class="tree" id="astTree"></div>
-        <div class="table-container" style="height:42%; margin-top:10px;"><table id="symTable"></table></div>
+        <h3>AST / 符号表 / 错误分析</h3>
+        <div class="tree" id="astTree">等待运行</div>
+        <div class="errors" id="errorBox">暂无错误</div>
+        <div class="table-container" style="height:24%; margin-top:10px;"><table id="symTable"></table></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
+const defaultGrammar = `Prog -> DeclList
+DeclList -> DeclList Decl | Decl
+Decl -> VarDecl | FunDecl
+VarDecl -> Type ID SEMI | Type ID LBRACK INT_NUM RBRACK SEMI | Type ID ASG Expr SEMI
+Type -> INT | FLOAT | VOID
+FunDecl -> Type ID LPAR ParamList RPAR CompStmt
+ParamList -> ParamList COMMA Param | Param | epsilon
+Param -> Type ID | Type ID LBRACK RBRACK
+CompStmt -> LBR StmtList RBR
+StmtList -> StmtList Stmt | epsilon
+Stmt -> VarDecl | OtherStmt
+OtherStmt -> ExprStmt | CompStmt | IfStmt | LoopStmt | ForStmt | RetStmt | PrintStmt
+PrintStmt -> PRINT LPAR Expr RPAR SEMI
+IfStmt -> IF LPAR Expr RPAR CompStmt | IF LPAR Expr RPAR CompStmt ELSE CompStmt
+LoopStmt -> WHILE LPAR Expr RPAR Stmt
+ForStmt -> FOR LPAR ExprStmt ExprStmt Expr RPAR Stmt
+RetStmt -> RETURN Expr SEMI | RETURN SEMI
+Expr -> ID ASG Expr | ID LBRACK Expr RBRACK ASG Expr | ID LPAR ArgList RPAR | SimpExpr`;
+
 const samples = {
-basic: {
-quad: `id\top\targ1\targ2\tresult
-0\tfunc\tmain\t_\t_
-1\t*\t2\t3\tt1
-2\t+\t1\tt1\tt2
-3\t:=\tt2\t_\ta
-4\tprint\ta\t_\t_
-5\treturn\ta\t_\t_
-6\tendfunc\tmain\t_\t_`,
-ast: `Program
-  FunDecl(main) : int
-    ParamList
-    CompStmt
-      VarDecl(a) : int
-      Assign(a) : int
-        BinaryOp(+)
-          Int(1)
-          BinaryOp(*)
-            Int(2)
-            Int(3)
-      Print
-        ID(a)
-      Return
-        ID(a)`,
-sym: `name\tkind\ttype\tscope\tline\tcol\textra
-main\tfunction\tint\t0\t1\t5\tparams=()
-a\tvariable\tint\t2\t2\t9\t-`
-},
-arrayFor: {
-quad: `id\top\targ1\targ2\tresult
-0\tfunc\tmain\t_\t_
-1\t:=\t0\t_\ti
-2\tlabel\t_\t_\tL1
-3\t<\ti\t3\tt1
-4\tjz\tt1\t_\tL2
-5\t:=\t0\t_\tj
-6\tlabel\t_\t_\tL3
-7\t<\tj\t3\tt2
-8\tjz\tt2\t_\tL4
-9\t+\ti\tj\tt3
-10\t[]=\tt3\ti,j\tmatrix
-11\t+\tj\t1\tt4
-12\t:=\tt4\t_\tj
-13\tj\t_\t_\tL3
-14\tlabel\t_\t_\tL4
-15\t+\ti\t1\tt5
-16\t:=\tt5\t_\ti
-17\tj\t_\t_\tL1
-18\tlabel\t_\t_\tL2
-19\t=[]\tmatrix\t2,2\tt6
-20\treturn\tt6\t_\t_
-21\tendfunc\tmain\t_\t_`,
-ast: `Program
-  FunDecl(main) : int
-    CompStmt
-      VarDecl(matrix) : int
-      For
-        ForInit
-          VarDecl(i) : int
-        ForCond
-          BinaryOp(<)
-        ForStep
-          Assign(i)
-        CompStmt
-          For
-            ForInit
-              VarDecl(j) : int
-            CompStmt
-              ArrayAssign(matrix)
-      Return
-        ArrayRef(matrix)`,
-sym: `name\tkind\ttype\tscope\tline\tcol\textra
-main\tfunction\tint\t0\t1\t5\tparams=()
-matrix\tarray\tint\t2\t2\t9\tdims=3x3
-i\tvariable\tint\t3\t3\t14\t-
-j\tvariable\tint\t5\t4\t18\t-`
-},
-functionCall: {
-quad: `id\top\targ1\targ2\tresult
-0\tfunc\tcalculate\t_\t_
-1\t*\ta\tb\tt1
-2\t+\tt1\tc\tt2
-3\t:=\tt2\t_\tresult
-4\t*\tresult\t2\tt3
-5\t:=\tt3\t_\ttemp
-6\t:=\ttemp\t_\tresult
-7\treturn\tresult\t_\t_
-8\tendfunc\tcalculate\t_\t_
-9\tfunc\tmain\t_\t_
-10\tparam\t3\t_\t_
-11\tparam\t4\t_\t_
-12\tparam\t5\t_\t_
-13\tcall\tcalculate\t3\tt4
-14\t:=\tt4\t_\tx
-15\treturn\tx\t_\t_
-16\tendfunc\tmain\t_\t_`,
-ast: `Program
-  FunDecl(calculate) : int
-    ParamList
-      Param(a) : int
-      Param(b) : int
-      Param(c) : int
-    CompStmt
-      VarDecl(result) : int
-      VarDecl(temp) : int
-      Assign(result) : int
-      Return
-        ID(result)
-  FunDecl(main) : int
-    CompStmt
-      VarDecl(x) : int
-      Assign(x) : int
-        Call(calculate) : int
-      Return
-        ID(x)`,
-sym: `name\tkind\ttype\tscope\tline\tcol\textra
-calculate\tfunction\tint\t0\t1\t5\tparams=(int,int,int)
-a\tparam\tint\t1\t1\t19\t-
-b\tparam\tint\t1\t1\t26\t-
-c\tparam\tint\t1\t1\t33\t-
-result\tvariable\tint\t2\t2\t9\t-
-temp\tvariable\tint\t2\t3\t9\t-
-main\tfunction\tint\t0\t12\t5\tparams=()
-x\tvariable\tint\t5\t13\t9\t-`
-}
+basic: `int main() {
+    int a;
+    a = 1 + 2 * 3;
+    print(a);
+    return a;
+}`,
+forArray: `int main() {
+    int matrix[3][3];
+    for (int i = 0; i < 3; i = i + 1) {
+        for (int j = 0; j < 3; j = j + 1) {
+            matrix[i][j] = i + j;
+        }
+    }
+    return matrix[2][2]
+};`,
+error: `void acc() {
+    int sum;
+    sum = add(3.48,);
+    print("Yes");
+    return 0
+};`
 };
 
-function parseTSV(text) {
-  const lines = text.trim().split(/\r?\n/).filter(Boolean);
-  if (!lines.length) return [];
-  const headers = lines[0].split("\t");
-  return lines.slice(1).map(line => {
-    const cols = line.split("\t");
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = cols[i] ?? "");
-    return obj;
-  });
+let result = {tokens:[], grammarRows:[], quads:[], symbols:[], ast:"", lexErrors:[], semErrors:[]};
+let currentTable = "quad";
+
+function loadSample(name){
+  grammarInput.value = defaultGrammar;
+  sourceInput.value = samples[name];
+  runCompiler();
 }
 
-function loadSample(name) {
-  document.getElementById("quadInput").value = samples[name].quad;
-  document.getElementById("astInput").value = samples[name].ast;
-  document.getElementById("symInput").value = samples[name].sym;
-  renderAll();
-}
-
-function renderAll() {
-  const quads = parseTSV(document.getElementById("quadInput").value);
-  const symbols = parseTSV(document.getElementById("symInput").value);
-  renderMetrics(quads);
-  renderQuadTable(quads);
-  renderSymbolTable(symbols);
-  renderAST();
-  drawGraph(quads);
-}
-
-function renderMetrics(quads) {
-  const temps = new Set();
-  const labels = new Set();
-  let funcs = 0;
-  quads.forEach(q => {
-    ["arg1", "arg2", "result"].forEach(k => (q[k] || "").split(",").forEach(v => { if (/^t\d+$/.test(v)) temps.add(v); if (/^L\d+$/.test(v)) labels.add(v); }));
-    if (q.op === "func") funcs++;
-  });
-  document.getElementById("quadCount").textContent = quads.length;
-  document.getElementById("tempCount").textContent = temps.size;
-  document.getElementById("labelCount").textContent = labels.size;
-  document.getElementById("funcCount").textContent = funcs;
-}
-
-function renderQuadTable(quads) {
-  const table = document.getElementById("quadTable");
-  table.innerHTML = "<tr><th>id</th><th>op</th><th>arg1</th><th>arg2</th><th>result</th></tr>";
-  quads.forEach(q => table.innerHTML += `<tr><td>${q.id}</td><td>${q.op}</td><td>${q.arg1}</td><td>${q.arg2}</td><td>${q.result}</td></tr>`);
-}
-
-function renderSymbolTable(symbols) {
-  const table = document.getElementById("symTable");
-  table.innerHTML = "<tr><th>name</th><th>kind</th><th>type</th><th>scope</th><th>extra</th></tr>";
-  symbols.forEach(s => table.innerHTML += `<tr><td>${s.name}</td><td>${s.kind}</td><td>${s.type}</td><td>${s.scope}</td><td>${s.extra}</td></tr>`);
-}
-
-function renderAST() {
-  const ast = document.getElementById("astInput").value.trim();
-  document.getElementById("astTree").textContent = ast || "未输入 AST 文本树";
-}
-
-function drawGraph(quads) {
-  const svg = document.getElementById("graph");
-  svg.innerHTML = "";
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  defs.innerHTML = `
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path></marker>
-    <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"></path></marker>`;
-  svg.appendChild(defs);
-  if (!quads.length) return;
-
-  const width = svg.clientWidth || 900;
-  const rowH = 76;
-  const nodeW = 230;
-  const nodeH = 52;
-  const leftX = 155, rightX = Math.max(560, width - 170);
-  svg.setAttribute("viewBox", `0 0 ${width} ${Math.max(360, quads.length * rowH + 40)}`);
-
-  const labelPos = {};
-  quads.forEach((q, i) => { if (q.op === "label") labelPos[q.result] = i; });
-
-  function nodeClass(q) {
-    if (q.op === "label") return "label-node";
-    if (q.op === "j" || q.op === "jz") return "jump-node";
-    return "quad-node";
-  }
-  function make(type, attrs, text) {
-    const el = document.createElementNS("http://www.w3.org/2000/svg", type);
-    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
-    if (text !== undefined) el.textContent = text;
-    svg.appendChild(el);
-    return el;
-  }
-
-  function shortText(text, maxLen) {
-    text = String(text ?? "");
-    return text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text;
-  }
-
-  quads.forEach((q, i) => {
-    const y = 35 + i * rowH;
-    const opText = `${q.id}: ${q.op}`;
-    const argText = shortText(`arg1=${q.arg1}  arg2=${q.arg2}  res=${q.result}`, 34);
-    make("rect", {x:leftX-nodeW/2, y:y-nodeH/2, width:nodeW, height:nodeH, rx:9, class:nodeClass(q)});
-    make("text", {x:leftX, y:y-8, class:"node-label node-op"}, opText);
-    make("text", {x:leftX, y:y+12, class:"node-label node-args"}, argText);
-    if (i < quads.length - 1) {
-      const y2 = 35 + (i + 1) * rowH;
-      make("path", {d:`M${leftX},${y+nodeH/2+3} L${leftX},${y2-nodeH/2-3}`, class:"edge"});
+function lex(src){
+  const keywords = {int:"INT", float:"FLOAT", void:"VOID", if:"IF", else:"ELSE", while:"WHILE", for:"FOR", return:"RETURN", print:"PRINT", input:"INPUT"};
+  const one = {"+":"ADD","-":"SUB","*":"MUL","/":"DIV","<":"REL_OP",">":"REL_OP","=":"ASG","(":"LPAR",")":"RPAR","[":"LBRACK","]":"RBRACK","{":"LBR","}":"RBR",",":"COMMA",";":"SEMI"};
+  let tokens=[], errors=[], i=0, line=1, col=1;
+  const add=(type,lex,l=line,c=col)=>tokens.push({type,lexeme:lex,grammar:type,line:l,col:c});
+  while(i<src.length){
+    let ch=src[i], l=line, c=col;
+    if(ch===" "||ch==="\t"||ch==="\r"){i++;col++;continue;}
+    if(ch==="\n"){i++;line++;col=1;continue;}
+    if(/[A-Za-z_]/.test(ch)){
+      let j=i+1; while(j<src.length && /[A-Za-z0-9_]/.test(src[j])) j++;
+      let s=src.slice(i,j), type=keywords[s]||"ID"; add(type,s,l,c); col+=j-i; i=j; continue;
     }
-  });
-
-  quads.forEach((q, i) => {
-    if ((q.op === "j" || q.op === "jz") && labelPos[q.result] !== undefined) {
-      const fromY = 35 + i * rowH;
-      const toY = 35 + labelPos[q.result] * rowH;
-      const midX = rightX + (i % 3) * 24;
-      make("path", {d:`M${leftX+nodeW/2+4},${fromY} C${midX},${fromY} ${midX},${toY} ${leftX+nodeW/2+4},${toY}`, class:"jump-edge"});
-      make("text", {x:midX, y:(fromY+toY)/2 - 5, class:"edge-label"}, `${q.op} -> ${q.result}`);
+    if(/[0-9]/.test(ch)){
+      let j=i; while(j<src.length && /[0-9]/.test(src[j])) j++;
+      let type="INT_NUM"; if(src[j]==="."){type="FLOAT_NUM"; j++; while(j<src.length && /[0-9]/.test(src[j])) j++;}
+      add(type,src.slice(i,j),l,c); col+=j-i; i=j; continue;
     }
-  });
+    if(ch==="/" && src[i+1]==="/"){while(i<src.length && src[i] !== "\n"){i++;col++;} continue;}
+    if(ch==='"'){
+      let j=i+1; while(j<src.length && src[j] !== '"' && src[j] !== "\n") j++; if(src[j]==='"') j++;
+      let s=src.slice(i,j); errors.push(`第 ${l} 行，第 ${c} 列：不支持字符串字面量 ${s}`); add("UNKNOWN",s,l,c); col+=j-i; i=j; continue;
+    }
+    if(ch==="；"){errors.push(`第 ${l} 行，第 ${c} 列：不支持中文分号，请使用 ;`); add("SEMI",ch,l,c); i++;col++;continue;}
+    let two=src.slice(i,i+2); if(["<=",">=","==","!="].includes(two)){add("REL_OP",two,l,c); i+=2;col+=2;continue;}
+    if(one[ch]){add(one[ch],ch,l,c); i++;col++;continue;}
+    errors.push(`第 ${l} 行，第 ${c} 列：无法识别字符 ${ch}`); add("UNKNOWN",ch,l,c); i++;col++;
+  }
+  add("END","#",line,col);
+  return {tokens,errors};
 }
 
-loadSample("basic");
+class Parser{
+  constructor(tokens){this.t=tokens;this.p=0;this.q=[];this.syms=[];this.errors=[];this.ast=[];this.scope=0;this.scopeId=0;this.temp=0;this.label=0;this.ret="void";}
+  peek(k=0){return this.t[this.p+k]||{type:"END",lexeme:"#",line:0,col:0};}
+  at(x){return this.peek().type===x;}
+  eat(x){if(this.at(x))return this.t[this.p++];return null;}
+  take(){return this.t[this.p++];}
+  err(tok,msg){let s=`第 ${tok.line} 行，第 ${tok.col} 列：${msg}`; if(!this.errors.includes(s)) this.errors.push(s);}
+  astLine(d,s){this.ast.push("  ".repeat(d)+s);}
+  emit(op,a="_",b="_",r="_"){this.q.push({id:this.q.length,op,arg1:String(a),arg2:String(b),result:String(r)});}
+  nt(){return "t"+(++this.temp);} nl(){return "L"+(++this.label);}
+  isType(){return this.at("INT")||this.at("FLOAT")||this.at("VOID");}
+  type(){if(this.eat("INT"))return"int"; if(this.eat("FLOAT"))return"float"; if(this.eat("VOID"))return"void"; this.err(this.peek(),"应为类型说明符"); return"int";}
+  sym(name){for(let i=this.syms.length-1;i>=0;i--) if(this.syms[i].name===name) return this.syms[i]; return null;}
+  addSym(name,kind,type,extra="-"){let t=this.peek(-1); this.syms.push({name,kind,type,scope:this.scope,line:t.line||0,col:t.col||0,extra});}
+  program(){this.astLine(0,"Program"); while(!this.at("END")){if(this.isType())this.decl(1); else if(this.at("ID")&&this.peek(1).type==="LPAR")this.skipTopCall(); else this.take();}}
+  skipTopCall(){while(!this.at("END")&&!this.eat("SEMI"))this.take();}
+  decl(d){let ty=this.type(), id=this.eat("ID"); if(!id){this.err(this.peek(),"应为标识符");return;} if(this.eat("LPAR"))this.funDecl(d,ty,id); else {this.p--; this.varDecl(d,ty,true);}}
+  funDecl(d,ty,id){this.astLine(d,`FunDecl(${id.lexeme}) : ${ty}`); this.addSym(id.lexeme,"function",ty,"params=()"); let funSym=this.syms[this.syms.length-1]; this.scope=++this.scopeId; let params=[]; this.astLine(d+1,"ParamList"); while(!this.at("RPAR")&&!this.at("END")){if(!this.isType()){this.take();continue;} let pt=this.type(), p=this.eat("ID"); if(p){params.push(pt); this.addSym(p.lexeme,"param",pt); this.astLine(d+2,`Param(${p.lexeme}) : ${pt}`);} if(this.eat("LBRACK"))this.eat("RBRACK"); this.eat("COMMA")||this.eat("SEMI");} funSym.extra=`params=(${params.join(",")})`; this.eat("RPAR"); this.ret=ty; this.emit("func",id.lexeme); this.compound(d+1); this.emit("endfunc",id.lexeme); this.scope=0; this.ret="void";}
+  compound(d){if(!this.eat("LBR")){this.err(this.peek(),"缺少左大括号 {");return;} this.astLine(d,"CompStmt"); while(!this.at("RBR")&&!this.at("END"))this.stmt(d+1); this.eat("RBR"); this.eat("SEMI");}
+  varDecl(d,ty,needSemi){let id=this.eat("ID"); if(!id){this.err(this.peek(),"应为标识符");return;} let dims=[]; while(this.eat("LBRACK")){let n=this.eat("INT_NUM"); if(n)dims.push(n.lexeme); else this.err(this.peek(),"应为数组长度"); this.eat("RBRACK");} let kind=dims.length?"array":"variable"; this.addSym(id.lexeme,kind,ty,dims.length?`dims=${dims.join("x")}`:"-"); this.astLine(d,`VarDecl(${id.lexeme}) : ${ty}`); if(this.eat("ASG")){if(this.eat("LBR")){let idx=0; while(!this.at("RBR")&&!this.at("END")){let v=this.expr(d+1); this.emit("[]=",v,idx++,id.lexeme); this.eat("COMMA");} this.eat("RBR");} else {let v=this.expr(d+1); this.emit(":=",v,"_",id.lexeme);}} if(needSemi) this.finish();}
+  stmt(d){if(this.isType()){this.varDecl(d,this.type(),true);return;} if(this.at("LBR")){this.compound(d);return;} if(this.eat("IF")){this.ifStmt(d);return;} if(this.eat("WHILE")){this.whileStmt(d);return;} if(this.eat("FOR")){this.forStmt(d);return;} if(this.eat("RETURN")){let tok=this.t[this.p-1], v=this.at("SEMI")||this.at("RBR")?"_":this.expr(d+1); if(this.ret==="void"&&v!=="_")this.err(tok,`返回值类型不匹配：void <- int`); this.emit("return",v); this.finish(); return;} if(this.eat("PRINT")){if(this.eat("LPAR")){let v=this.expr(d+1); this.eat("RPAR"); this.emit("print",v);} else this.emit("print",this.expr(d+1)); this.finish(); return;} if(this.eat("SEMI"))return; this.expr(d); this.finish();}
+  finish(){if(this.eat("SEMI")||this.at("RBR")||this.at("END"))return; this.err(this.peek(),"缺少分号 ;"); while(!this.at("SEMI")&&!this.at("RBR")&&!this.at("END"))this.take(); this.eat("SEMI");}
+  ifStmt(d){this.astLine(d,"If"); this.eat("LPAR"); let c=this.expr(d+1); this.eat("RPAR"); let l1=this.nl(),l2=this.nl(); this.emit("jz",c,"_",l1); this.compound(d+1); if(this.eat("ELSE")){this.emit("j","_","_",l2); this.emit("label","_","_",l1); this.compound(d+1); this.emit("label","_","_",l2);} else this.emit("label","_","_",l1);}
+  whileStmt(d){this.astLine(d,"While"); let l1=this.nl(),l2=this.nl(); this.emit("label","_","_",l1); this.eat("LPAR"); let c=this.expr(d+1); this.eat("RPAR"); this.emit("jz",c,"_",l2); this.compound(d+1); this.emit("j","_","_",l1); this.emit("label","_","_",l2);}
+  forStmt(d){this.astLine(d,"For"); this.eat("LPAR"); if(this.isType())this.varDecl(d+1,this.type(),true); else {if(!this.at("SEMI"))this.expr(d+1); this.eat("SEMI");} let l1=this.nl(),l2=this.nl(); this.emit("label","_","_",l1); let c=this.at("SEMI")?"1":this.expr(d+1); this.eat("SEMI"); let save=[]; let old=this.q; this.q=save; if(!this.at("RPAR"))this.expr(d+1); this.q=old; this.eat("RPAR"); this.emit("jz",c,"_",l2); this.compound(d+1); save.forEach(q=>{q.id=this.q.length; this.q.push(q);}); this.emit("j","_","_",l1); this.emit("label","_","_",l2);}
+  expr(d){return this.assign(d);}
+  assign(d){if(this.at("ID")&&(this.peek(1).type==="ASG"||this.peek(1).type==="LBRACK")){let save=this.p, id=this.take(), indexes=[]; while(this.eat("LBRACK")){indexes.push(this.expr(d+1)); this.eat("RBRACK");} if(this.eat("ASG")){let v=this.expr(d+1); if(indexes.length)this.emit("[]=",v,indexes.join(","),id.lexeme); else this.emit(":=",v,"_",id.lexeme); if(!this.sym(id.lexeme))this.err(id,`变量未声明：${id.lexeme}`); return id.lexeme;} this.p=save;} return this.rel(d);}
+  rel(d){let v=this.add(d); if(this.at("REL_OP")){let op=this.take().lexeme, r=this.add(d), t=this.nt(); this.emit(op,v,r,t); return t;} return v;}
+  add(d){let v=this.term(d); while(this.at("ADD")||this.at("SUB")){let op=this.take().lexeme,r=this.term(d),t=this.nt(); this.emit(op,v,r,t); v=t;} return v;}
+  term(d){let v=this.factor(d); while(this.at("MUL")||this.at("DIV")){let op=this.take().lexeme,r=this.factor(d),t=this.nt(); this.emit(op,v,r,t); v=t;} return v;}
+  factor(d){let tok=this.peek(); if(this.eat("INT_NUM")||this.eat("FLOAT_NUM"))return tok.lexeme; if(this.eat("LPAR")){let v=this.expr(d); this.eat("RPAR"); return v;} if(this.eat("UNKNOWN")){this.err(tok,`表达式中包含不支持的符号：${tok.lexeme}`); return "_";} if(this.eat("ID")){let name=tok.lexeme; if(this.eat("LPAR")){let args=[], trailing=false; while(!this.at("RPAR")&&!this.at("END")){if(this.at("COMMA")){trailing=true; this.take(); break;} args.push(this.expr(d+1)); if(!this.eat("COMMA"))break; if(this.at("RPAR")){trailing=true; break;}} this.eat("RPAR"); let s=this.sym(name); if(!s)this.err(tok,`函数未声明：${name}`); else {let body=s.extra.match(/params=\((.*)\)/)?.[1]||"", exp=body?body.split(",").length:0; if(exp!==args.length)this.err(tok,`函数调用参数数量不匹配：${name} 需要 ${exp} 个，实际 ${args.length} 个`); else if(trailing)this.err(tok,"函数调用参数列表多余逗号");} args.forEach(a=>this.emit("param",a)); let t=this.nt(); this.emit("call",name,args.length,t); return t;} if(this.at("LBRACK")){let idx=[]; while(this.eat("LBRACK")){idx.push(this.expr(d+1)); this.eat("RBRACK");} let t=this.nt(); this.emit("=[]",name,idx.join(","),t); return t;} if(!this.sym(name))this.err(tok,`变量未声明：${name}`); return name;} this.err(tok,"应为表达式"); this.take(); return "_";}
+}
+
+function parseGrammar(text){return text.split(/\r?\n/).filter(l=>l.includes("->")).flatMap((line,i)=>{let [left,right]=line.split("->"); return right.split("|").map(r=>({id:i+1,left:left.trim(),right:r.trim()}));});}
+function runCompiler(){const lx=lex(sourceInput.value); const p=new Parser(lx.tokens); p.program(); result={tokens:lx.tokens, grammarRows:parseGrammar(grammarInput.value), quads:p.q, symbols:p.syms, ast:p.ast.join("\n"), lexErrors:lx.errors, semErrors:p.errors}; renderAll(); status.textContent="运行完成：浏览器 JS 已生成全部结果";}
+
+function showTable(name,btn){currentTable=name;document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));btn.classList.add("active");renderTable();}
+function renderAll(){renderMetrics();drawGraph();renderTable();renderAST();renderSymbols();renderErrors();}
+function renderMetrics(){const temps=new Set(),labels=new Set();let funcs=0;result.quads.forEach(q=>{["arg1","arg2","result"].forEach(k=>String(q[k]||"").split(",").forEach(v=>{if(/^t\d+$/.test(v))temps.add(v);if(/^L\d+$/.test(v))labels.add(v)}));if(q.op==="func")funcs++;});quadCount.textContent=result.quads.length;tempCount.textContent=temps.size;labelCount.textContent=labels.size;funcCount.textContent=funcs;}
+function renderTable(){let rows=currentTable==="quad"?result.quads:(currentTable==="token"?result.tokens:result.grammarRows);const table=mainTable;table.innerHTML="";if(!rows.length){table.innerHTML="<tr><td>无数据</td></tr>";return;}let keys=Object.keys(rows[0]);table.innerHTML="<tr>"+keys.map(k=>`<th>${k}</th>`).join("")+"</tr>";rows.forEach(r=>table.innerHTML+="<tr>"+keys.map(k=>`<td>${r[k]??""}</td>`).join("")+"</tr>");}
+function renderAST(){astTree.textContent=result.ast||"无 AST";}
+function renderSymbols(){symTable.innerHTML="<tr><th>name</th><th>kind</th><th>type</th><th>scope</th><th>extra</th></tr>";result.symbols.forEach(s=>symTable.innerHTML+=`<tr><td>${s.name}</td><td>${s.kind}</td><td>${s.type}</td><td>${s.scope}</td><td>${s.extra}</td></tr>`);}
+function renderErrors(){let text=`错误统计：词法 ${result.lexErrors.length} 个，语法/语义 ${result.semErrors.length} 个\n\n`; if(result.lexErrors.length)text+="[词法错误]\n"+result.lexErrors.join("\n")+"\n\n"; if(result.semErrors.length)text+="[语法/语义错误]\n"+result.semErrors.join("\n"); errorBox.textContent=text.trim()||"暂无错误";}
+function drawGraph(){const quads=result.quads,svg=graph;svg.innerHTML="";const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");defs.innerHTML=`<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path></marker><marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"></path></marker>`;svg.appendChild(defs);if(!quads.length)return;const width=svg.clientWidth||900,rowH=76,nodeW=230,nodeH=52,leftX=155,rightX=Math.max(560,width-170);svg.setAttribute("viewBox",`0 0 ${width} ${Math.max(360,quads.length*rowH+40)}`);const labelPos={};quads.forEach((q,i)=>{if(q.op==="label")labelPos[q.result]=i});const make=(type,attrs,text)=>{let el=document.createElementNS("http://www.w3.org/2000/svg",type);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));if(text!==undefined)el.textContent=text;svg.appendChild(el);return el};const cls=q=>q.op==="label"?"label-node":(q.op==="j"||q.op==="jz"?"jump-node":"quad-node");const short=t=>String(t??"").length>34?String(t).slice(0,33)+"…":String(t??"");quads.forEach((q,i)=>{let y=35+i*rowH;make("rect",{x:leftX-nodeW/2,y:y-nodeH/2,width:nodeW,height:nodeH,rx:9,class:cls(q)});make("text",{x:leftX,y:y-8,class:"node-label node-op"},`${q.id}: ${q.op}`);make("text",{x:leftX,y:y+12,class:"node-label node-args"},short(`arg1=${q.arg1}  arg2=${q.arg2}  res=${q.result}`));if(i<quads.length-1){let y2=35+(i+1)*rowH;make("path",{d:`M${leftX},${y+nodeH/2+3} L${leftX},${y2-nodeH/2-3}`,class:"edge"});}});quads.forEach((q,i)=>{if((q.op==="j"||q.op==="jz")&&labelPos[q.result]!==undefined){let fromY=35+i*rowH,toY=35+labelPos[q.result]*rowH,midX=rightX+(i%3)*24;make("path",{d:`M${leftX+nodeW/2+4},${fromY} C${midX},${fromY} ${midX},${toY} ${leftX+nodeW/2+4},${toY}`,class:"jump-edge"});make("text",{x:midX,y:(fromY+toY)/2-5,class:"edge-label"},`${q.op} -> ${q.result}`);}});}
+
+grammarInput.value=defaultGrammar; sourceInput.value=samples.basic; runCompiler();
 </script>
 </body>
 </html>
