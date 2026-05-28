@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实验六：四元式中间代码可视化</title>
+<style>
+body { font-family: Arial, "Microsoft YaHei"; margin: 0; padding: 0; background: #f4f6f8; color:#0f172a; }
+.container { display: grid; grid-template-columns: 380px 1fr; gap: 12px; padding: 12px; height: 100vh; box-sizing: border-box; }
+.left, .panel { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.08); padding:16px; overflow:auto; }
+.right { display:grid; grid-template-rows: 52% 48%; gap:12px; min-width:0; min-height:0; }
+.bottom { display:grid; grid-template-columns: 1fr 1fr; gap:12px; min-height:0; }
+h2,h3 { margin:0 0 12px; }
+textarea { width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid #ccd3dc; font-family:Consolas, monospace; font-size:13px; resize:vertical; }
+button { margin-top:8px; width:100%; padding:10px; border:none; border-radius:8px; background:#2563eb; color:#fff; font-size:15px; cursor:pointer; }
+button:hover { background:#1d4ed8; }
+.btn-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.hint { margin-top:10px; font-size:13px; color:#475569; line-height:1.6; }
+.metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0 12px; }
+.metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; }
+.metric b { display:block; color:#2563eb; font-size:20px; }
+svg { width:100%; height:calc(100% - 42px); min-height:280px; border:1px solid #e2e8f0; border-radius:10px; background:#fbfdff; }
+.quad-node { fill:#ffffff; stroke:#2563eb; stroke-width:2; }
+.jump-node { fill:#eff6ff; stroke:#7c3aed; stroke-width:2; }
+.label-node { fill:#f0fdf4; stroke:#16a34a; stroke-width:2; }
+.edge { stroke:#64748b; stroke-width:1.6; fill:none; marker-end:url(#arrow); }
+.jump-edge { stroke:#7c3aed; stroke-width:2; fill:none; marker-end:url(#arrowPurple); stroke-dasharray:5 4; }
+.node-label { text-anchor:middle; dominant-baseline:middle; font-family:Consolas, "Cascadia Mono", "Microsoft YaHei", monospace; }
+.node-op { font-size:13px; font-weight:700; fill:#0f172a; }
+.node-args { font-size:11px; fill:#475569; }
+.edge-label { font-size:12px; text-anchor:middle; fill:#475569; font-family:Consolas, "Cascadia Mono", "Microsoft YaHei", monospace; paint-order:stroke; stroke:#fbfdff; stroke-width:4px; }
+.table-container { overflow:auto; height:calc(100% - 36px); }
+table { border-collapse:collapse; width:100%; font-size:13px; }
+th,td { border:1px solid #cbd5e1; padding:6px; text-align:center; font-family:Consolas, monospace; white-space:nowrap; }
+th { background:#eff6ff; color:#1e3a8a; position:sticky; top:0; }
+.tree { font-family:Consolas, monospace; white-space:pre; font-size:13px; line-height:1.45; background:#fbfdff; border:1px solid #e2e8f0; border-radius:10px; padding:10px; height:calc(100% - 58px); overflow:auto; }
+.tag { display:inline-block; padding:2px 7px; border-radius:999px; background:#e0f2fe; color:#0369a1; font-size:12px; margin-left:6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="left">
+    <h2>实验六可视化<span class="tag">四元式</span></h2>
+    <div class="hint">
+      本页面用于展示实验六输出：四元式表、简化控制流图、AST 文本树和符号表。
+      可以选择内置样例，也可以把 `build/ir/quadruples.tsv` 内容复制到下方再生成。
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric"><span>四元式数量</span><b id="quadCount">0</b></div>
+      <div class="metric"><span>临时变量</span><b id="tempCount">0</b></div>
+      <div class="metric"><span>标签数量</span><b id="labelCount">0</b></div>
+      <div class="metric"><span>函数数量</span><b id="funcCount">0</b></div>
+    </div>
+
+    <h3>样例</h3>
+    <div class="btn-row">
+      <button onclick="loadSample('basic')">基本表达式</button>
+      <button onclick="loadSample('arrayFor')">for + 二维数组</button>
+    </div>
+    <button onclick="loadSample('functionCall')">函数调用样例</button>
+
+    <h3 style="margin-top:16px;">四元式 TSV</h3>
+    <textarea id="quadInput" rows="13"></textarea>
+
+    <h3 style="margin-top:12px;">AST 文本树</h3>
+    <textarea id="astInput" rows="8"></textarea>
+
+    <h3 style="margin-top:12px;">符号表 TSV</h3>
+    <textarea id="symInput" rows="8"></textarea>
+
+    <button onclick="renderAll()">生成可视化</button>
+  </div>
+
+  <div class="right">
+    <div class="panel">
+      <h3>四元式控制流图</h3>
+      <svg id="graph"></svg>
+    </div>
+    <div class="bottom">
+      <div class="panel">
+        <h3>四元式表</h3>
+        <div class="table-container"><table id="quadTable"></table></div>
+      </div>
+      <div class="panel">
+        <h3>AST 与符号表</h3>
+        <div class="tree" id="astTree"></div>
+        <div class="table-container" style="height:42%; margin-top:10px;"><table id="symTable"></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const samples = {
+basic: {
+quad: `id\top\targ1\targ2\tresult
+0\tfunc\tmain\t_\t_
+1\t*\t2\t3\tt1
+2\t+\t1\tt1\tt2
+3\t:=\tt2\t_\ta
+4\tprint\ta\t_\t_
+5\treturn\ta\t_\t_
+6\tendfunc\tmain\t_\t_`,
+ast: `Program
+  FunDecl(main) : int
+    ParamList
+    CompStmt
+      VarDecl(a) : int
+      Assign(a) : int
+        BinaryOp(+)
+          Int(1)
+          BinaryOp(*)
+            Int(2)
+            Int(3)
+      Print
+        ID(a)
+      Return
+        ID(a)`,
+sym: `name\tkind\ttype\tscope\tline\tcol\textra
+main\tfunction\tint\t0\t1\t5\tparams=()
+a\tvariable\tint\t2\t2\t9\t-`
+},
+arrayFor: {
+quad: `id\top\targ1\targ2\tresult
+0\tfunc\tmain\t_\t_
+1\t:=\t0\t_\ti
+2\tlabel\t_\t_\tL1
+3\t<\ti\t3\tt1
+4\tjz\tt1\t_\tL2
+5\t:=\t0\t_\tj
+6\tlabel\t_\t_\tL3
+7\t<\tj\t3\tt2
+8\tjz\tt2\t_\tL4
+9\t+\ti\tj\tt3
+10\t[]=\tt3\ti,j\tmatrix
+11\t+\tj\t1\tt4
+12\t:=\tt4\t_\tj
+13\tj\t_\t_\tL3
+14\tlabel\t_\t_\tL4
+15\t+\ti\t1\tt5
+16\t:=\tt5\t_\ti
+17\tj\t_\t_\tL1
+18\tlabel\t_\t_\tL2
+19\t=[]\tmatrix\t2,2\tt6
+20\treturn\tt6\t_\t_
+21\tendfunc\tmain\t_\t_`,
+ast: `Program
+  FunDecl(main) : int
+    CompStmt
+      VarDecl(matrix) : int
+      For
+        ForInit
+          VarDecl(i) : int
+        ForCond
+          BinaryOp(<)
+        ForStep
+          Assign(i)
+        CompStmt
+          For
+            ForInit
+              VarDecl(j) : int
+            CompStmt
+              ArrayAssign(matrix)
+      Return
+        ArrayRef(matrix)`,
+sym: `name\tkind\ttype\tscope\tline\tcol\textra
+main\tfunction\tint\t0\t1\t5\tparams=()
+matrix\tarray\tint\t2\t2\t9\tdims=3x3
+i\tvariable\tint\t3\t3\t14\t-
+j\tvariable\tint\t5\t4\t18\t-`
+},
+functionCall: {
+quad: `id\top\targ1\targ2\tresult
+0\tfunc\tcalculate\t_\t_
+1\t*\ta\tb\tt1
+2\t+\tt1\tc\tt2
+3\t:=\tt2\t_\tresult
+4\t*\tresult\t2\tt3
+5\t:=\tt3\t_\ttemp
+6\t:=\ttemp\t_\tresult
+7\treturn\tresult\t_\t_
+8\tendfunc\tcalculate\t_\t_
+9\tfunc\tmain\t_\t_
+10\tparam\t3\t_\t_
+11\tparam\t4\t_\t_
+12\tparam\t5\t_\t_
+13\tcall\tcalculate\t3\tt4
+14\t:=\tt4\t_\tx
+15\treturn\tx\t_\t_
+16\tendfunc\tmain\t_\t_`,
+ast: `Program
+  FunDecl(calculate) : int
+    ParamList
+      Param(a) : int
+      Param(b) : int
+      Param(c) : int
+    CompStmt
+      VarDecl(result) : int
+      VarDecl(temp) : int
+      Assign(result) : int
+      Return
+        ID(result)
+  FunDecl(main) : int
+    CompStmt
+      VarDecl(x) : int
+      Assign(x) : int
+        Call(calculate) : int
+      Return
+        ID(x)`,
+sym: `name\tkind\ttype\tscope\tline\tcol\textra
+calculate\tfunction\tint\t0\t1\t5\tparams=(int,int,int)
+a\tparam\tint\t1\t1\t19\t-
+b\tparam\tint\t1\t1\t26\t-
+c\tparam\tint\t1\t1\t33\t-
+result\tvariable\tint\t2\t2\t9\t-
+temp\tvariable\tint\t2\t3\t9\t-
+main\tfunction\tint\t0\t12\t5\tparams=()
+x\tvariable\tint\t5\t13\t9\t-`
+}
+};
+
+function parseTSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  if (!lines.length) return [];
+  const headers = lines[0].split("\t");
+  return lines.slice(1).map(line => {
+    const cols = line.split("\t");
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = cols[i] ?? "");
+    return obj;
+  });
+}
+
+function loadSample(name) {
+  document.getElementById("quadInput").value = samples[name].quad;
+  document.getElementById("astInput").value = samples[name].ast;
+  document.getElementById("symInput").value = samples[name].sym;
+  renderAll();
+}
+
+function renderAll() {
+  const quads = parseTSV(document.getElementById("quadInput").value);
+  const symbols = parseTSV(document.getElementById("symInput").value);
+  renderMetrics(quads);
+  renderQuadTable(quads);
+  renderSymbolTable(symbols);
+  renderAST();
+  drawGraph(quads);
+}
+
+function renderMetrics(quads) {
+  const temps = new Set();
+  const labels = new Set();
+  let funcs = 0;
+  quads.forEach(q => {
+    ["arg1", "arg2", "result"].forEach(k => (q[k] || "").split(",").forEach(v => { if (/^t\d+$/.test(v)) temps.add(v); if (/^L\d+$/.test(v)) labels.add(v); }));
+    if (q.op === "func") funcs++;
+  });
+  document.getElementById("quadCount").textContent = quads.length;
+  document.getElementById("tempCount").textContent = temps.size;
+  document.getElementById("labelCount").textContent = labels.size;
+  document.getElementById("funcCount").textContent = funcs;
+}
+
+function renderQuadTable(quads) {
+  const table = document.getElementById("quadTable");
+  table.innerHTML = "<tr><th>id</th><th>op</th><th>arg1</th><th>arg2</th><th>result</th></tr>";
+  quads.forEach(q => table.innerHTML += `<tr><td>${q.id}</td><td>${q.op}</td><td>${q.arg1}</td><td>${q.arg2}</td><td>${q.result}</td></tr>`);
+}
+
+function renderSymbolTable(symbols) {
+  const table = document.getElementById("symTable");
+  table.innerHTML = "<tr><th>name</th><th>kind</th><th>type</th><th>scope</th><th>extra</th></tr>";
+  symbols.forEach(s => table.innerHTML += `<tr><td>${s.name}</td><td>${s.kind}</td><td>${s.type}</td><td>${s.scope}</td><td>${s.extra}</td></tr>`);
+}
+
+function renderAST() {
+  const ast = document.getElementById("astInput").value.trim();
+  document.getElementById("astTree").textContent = ast || "未输入 AST 文本树";
+}
+
+function drawGraph(quads) {
+  const svg = document.getElementById("graph");
+  svg.innerHTML = "";
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path></marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"></path></marker>`;
+  svg.appendChild(defs);
+  if (!quads.length) return;
+
+  const width = svg.clientWidth || 900;
+  const rowH = 76;
+  const nodeW = 230;
+  const nodeH = 52;
+  const leftX = 155, rightX = Math.max(560, width - 170);
+  svg.setAttribute("viewBox", `0 0 ${width} ${Math.max(360, quads.length * rowH + 40)}`);
+
+  const labelPos = {};
+  quads.forEach((q, i) => { if (q.op === "label") labelPos[q.result] = i; });
+
+  function nodeClass(q) {
+    if (q.op === "label") return "label-node";
+    if (q.op === "j" || q.op === "jz") return "jump-node";
+    return "quad-node";
+  }
+  function make(type, attrs, text) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", type);
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    if (text !== undefined) el.textContent = text;
+    svg.appendChild(el);
+    return el;
+  }
+
+  function shortText(text, maxLen) {
+    text = String(text ?? "");
+    return text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text;
+  }
+
+  quads.forEach((q, i) => {
+    const y = 35 + i * rowH;
+    const opText = `${q.id}: ${q.op}`;
+    const argText = shortText(`arg1=${q.arg1}  arg2=${q.arg2}  res=${q.result}`, 34);
+    make("rect", {x:leftX-nodeW/2, y:y-nodeH/2, width:nodeW, height:nodeH, rx:9, class:nodeClass(q)});
+    make("text", {x:leftX, y:y-8, class:"node-label node-op"}, opText);
+    make("text", {x:leftX, y:y+12, class:"node-label node-args"}, argText);
+    if (i < quads.length - 1) {
+      const y2 = 35 + (i + 1) * rowH;
+      make("path", {d:`M${leftX},${y+nodeH/2+3} L${leftX},${y2-nodeH/2-3}`, class:"edge"});
+    }
+  });
+
+  quads.forEach((q, i) => {
+    if ((q.op === "j" || q.op === "jz") && labelPos[q.result] !== undefined) {
+      const fromY = 35 + i * rowH;
+      const toY = 35 + labelPos[q.result] * rowH;
+      const midX = rightX + (i % 3) * 24;
+      make("path", {d:`M${leftX+nodeW/2+4},${fromY} C${midX},${fromY} ${midX},${toY} ${leftX+nodeW/2+4},${toY}`, class:"jump-edge"});
+      make("text", {x:midX, y:(fromY+toY)/2 - 5, class:"edge-label"}, `${q.op} -> ${q.result}`);
+    }
+  });
+}
+
+loadSample("basic");
+</script>
+</body>
+</html>

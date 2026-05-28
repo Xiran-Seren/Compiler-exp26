@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>实验五：SLR 引导的语义分析可视化</title>
+<style>
+:root{
+  --blue:#2563eb;
+  --blue-dark:#1d4ed8;
+  --green:#16a34a;
+  --red:#dc2626;
+  --orange:#f97316;
+  --bg:#f4f6f8;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --line:#e2e8f0;
+  --soft:#eff6ff;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Arial,"Microsoft YaHei",sans-serif;
+}
+.container{
+  display:grid;
+  grid-template-columns:380px 1fr;
+  gap:12px;
+  padding:12px;
+  height:100vh;
+}
+.left,.panel{
+  background:var(--card);
+  border-radius:12px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+  padding:16px;
+  overflow:auto;
+}
+.right{
+  display:grid;
+  grid-template-rows:52% 48%;
+  gap:12px;
+  min-width:0;
+  min-height:0;
+}
+.top-grid{
+  display:grid;
+  grid-template-columns:44% 56%;
+  gap:12px;
+  height:100%;
+  min-height:0;
+}
+.bottom-grid{
+  display:grid;
+  grid-template-columns:48% 52%;
+  gap:12px;
+  height:100%;
+  min-height:0;
+}
+h2,h3{
+  margin:0 0 12px;
+}
+h2{font-size:20px;}
+h3{font-size:17px;}
+.sub{
+  margin:-4px 0 12px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.6;
+}
+textarea,input,select{
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #ccd3dc;
+  font-family:Consolas,"Courier New",monospace;
+  font-size:13px;
+  outline:none;
+  background:#fff;
+}
+textarea:focus,input:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,0.12);}
+textarea{resize:vertical; min-height:110px;}
+button{
+  margin-top:10px;
+  width:100%;
+  padding:10px;
+  border:none;
+  border-radius:8px;
+  background:var(--blue);
+  color:#fff;
+  font-size:15px;
+  cursor:pointer;
+}
+button:hover{background:var(--blue-dark);}
+button.secondary{background:#334155;}
+button.secondary:hover{background:#1e293b;}
+button.light{
+  background:#e2e8f0;
+  color:#0f172a;
+}
+button.light:hover{background:#cbd5e1;}
+label{
+  display:block;
+  margin:12px 0 6px;
+  color:#334155;
+  font-weight:600;
+  font-size:13px;
+}
+.row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.badges{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0;}
+.badge{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  background:var(--soft);
+  color:#1e40af;
+  font-size:12px;
+  border:1px solid #bfdbfe;
+}
+.badge.ok{background:#ecfdf5; color:#166534; border-color:#bbf7d0;}
+.badge.warn{background:#fff7ed; color:#9a3412; border-color:#fed7aa;}
+.badge.err{background:#fef2f2; color:#991b1b; border-color:#fecaca;}
+.table-wrap{overflow:auto; border:1px solid var(--line); border-radius:10px; max-height:100%;}
+table{border-collapse:collapse; width:100%; background:#fff;}
+th,td{
+  border:1px solid #d7dde6;
+  padding:6px 8px;
+  text-align:center;
+  font-family:Consolas,"Courier New",monospace;
+  font-size:12px;
+  white-space:nowrap;
+}
+th{background:#f1f5f9; color:#334155; position:sticky; top:0; z-index:1;}
+.trace-row.active td{background:#eff6ff; color:#1d4ed8; font-weight:700;}
+.trace-row.accept td{background:#ecfdf5; color:#166534;}
+.trace-row.error td{background:#fef2f2; color:#991b1b;}
+.flow{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:8px;
+  margin-bottom:12px;
+}
+.flow-card{
+  border:1px solid var(--line);
+  background:#fbfdff;
+  border-radius:10px;
+  padding:10px 8px;
+  text-align:center;
+  font-size:13px;
+  min-height:58px;
+}
+.flow-card b{display:block; color:var(--blue); margin-bottom:3px;}
+svg{
+  width:100%;
+  height:calc(100% - 38px);
+  min-height:270px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fbfdff;
+}
+.node-rect{fill:#ffffff; stroke:var(--blue); stroke-width:1.8; rx:8; ry:8;}
+.node-type{font-size:12px; fill:#64748b; text-anchor:middle;}
+.node-label{font-size:13px; fill:#0f172a; text-anchor:middle; font-weight:600;}
+.ast-edge{stroke:#475569; stroke-width:1.5; fill:none; marker-end:url(#arrow);}
+.message-box{
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fbfdff;
+  padding:10px;
+  min-height:60px;
+  font-size:13px;
+  line-height:1.6;
+  overflow:auto;
+}
+.error-item{
+  margin:6px 0;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#991b1b;
+  font-family:Consolas,"Courier New",monospace;
+  font-size:12px;
+}
+.ok-item{
+  margin:6px 0;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #bbf7d0;
+  background:#ecfdf5;
+  color:#166534;
+  font-size:13px;
+}
+.split-title{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.small-btn{
+  width:auto;
+  margin:0;
+  padding:5px 9px;
+  border-radius:7px;
+  font-size:12px;
+}
+pre{
+  margin:0;
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-family:Consolas,"Courier New",monospace;
+  font-size:12px;
+}
+@media(max-width:1100px){
+  .container{grid-template-columns:1fr; height:auto;}
+  .right{grid-template-rows:auto auto;}
+  .top-grid,.bottom-grid{grid-template-columns:1fr;}
+  .flow{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="left">
+    <h2>实验五输入</h2>
+    <p class="sub">读取实验二 Token 文件和实验四 SLR(1) 分析表，模拟规约过程，并展示 AST、符号表和语义错误。</p>
+
+    <label>实验二 tokens.tsv 内容</label>
+    <textarea id="tokenInput" rows="13"># type	lexeme	grammar	line	col
+INT	int	int	1	1
+ID	main	d	1	5
+LPA	(	(	1	9
+RPA	)	)	1	10
+LBR	{	{	1	12
+INT	int	int	2	3
+ID	a	d	2	7
+SCO	;	;	2	8
+ID	a	d	3	3
+ASG	=	=	3	5
+NUM	1	i	3	7
+ADD	+	+	3	9
+NUM	2	i	3	11
+SCO	;	;	3	12
+RETURN	return	return	4	3
+ID	a	d	4	10
+SCO	;	;	4	11
+RBR	}	}	5	1
+END	#	#	5	2</textarea>
+    <input id="tokenFile" type="file" accept=".tsv,.txt" />
+
+    <label>实验四 SLR(1) 分析表 / 报告内容</label>
+    <textarea id="slrInput" rows="10">0: P->F
+1: F->int d ( ) { L }
+2: L->L ; S
+3: L->S
+4: S->D
+5: S->A
+6: S->R
+7: D->int d
+8: A->d = E
+9: R->return E
+10: E->E + E
+11: E->d
+12: E->i
+
+state	int	d	(	)	{	}	;	=	+	return	i	#	P	F	L	S	D	A	R	E
+0	S1													2						
+1		S3																		
+2												acc								
+3			S4																	
+4				S5																
+5					S6															
+6	S9	S10								S13					7	8	11	12	14	
+7						S15	S16													
+8						R3	R3													
+9		S17																		
+10								S18												
+11						R4	R4													
+12						R5	R5													
+13		S21									S22								19	
+14						R6	R6		R6											
+15												R1								
+16	S9	S10								S13						23	11	12	14	
+17						R7	R7													
+18		S21									S22								24	
+19						R9	R9		S25											
+20						R8	R8		S25											
+21						R11	R11		R11											
+22						R12	R12		R12											
+23						R2	R2													
+24						R8	R8		S25											
+25		S21									S22								26	
+26						R10	R10		R10											</textarea>
+    <input id="slrFile" type="file" accept=".tsv,.txt" />
+
+    <button onclick="runSemantic()">开始语义分析可视化</button>
+    <button class="secondary" onclick="stepForward()">单步执行分析过程</button>
+    <button class="light" onclick="resetStep()">重置高亮</button>
+
+    <div class="badges" id="summaryBadges">
+      <span class="badge">Token: 0</span>
+      <span class="badge">产生式: 0</span>
+      <span class="badge">语义错误: 0</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="top-grid">
+      <div class="panel">
+        <h3>语义分析流程</h3>
+        <div class="flow">
+          <div class="flow-card"><b>1 Token</b>读取词法结果</div>
+          <div class="flow-card"><b>2 SLR表</b>ACTION/GOTO</div>
+          <div class="flow-card"><b>3 规约</b>执行语义动作</div>
+          <div class="flow-card"><b>4 AST</b>构造语法树</div>
+          <div class="flow-card"><b>5 符号表</b>检查语义错误</div>
+        </div>
+        <div class="split-title"><h3 style="margin:0">SLR 分析过程</h3><button class="small-btn" onclick="downloadTrace()">导出 trace.tsv</button></div>
+        <div class="table-wrap" style="height:calc(100% - 120px); margin-top:10px;">
+          <table id="traceTable"></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="split-title"><h3 style="margin:0">AST 可视化</h3><button class="small-btn" onclick="downloadAstDot()">导出 ast.dot</button></div>
+        <svg id="astSvg"></svg>
+      </div>
+    </div>
+
+    <div class="bottom-grid">
+      <div class="panel">
+        <div class="split-title"><h3 style="margin:0">符号表</h3><button class="small-btn" onclick="downloadSymbols()">导出 symbols.tsv</button></div>
+        <div class="table-wrap" style="height:calc(100% - 38px); margin-top:10px;">
+          <table id="symbolTable"></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="split-title"><h3 style="margin:0">语义错误与 AST 文本</h3><button class="small-btn" onclick="downloadReport()">导出报告</button></div>
+        <div class="message-box" id="errorBox" style="height:38%; margin-top:10px;"></div>
+        <div class="message-box" style="height:calc(62% - 12px); margin-top:12px;"><pre id="astText"></pre></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let tokens=[], productions=[], ACTION={}, GOTO_TABLE={}, trace=[], astRoot=null, astNodes=[], symbols=[], errors=[], currentStep=-1;
+let slrHeaders=[], formatNotes=[];
+
+function trim(s){return (s||"").replace(/^\s+|\s+$/g,"");}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function splitLine(line){return line.includes("\t")?line.split("\t"):line.trim().split(/\s+/);}
+function splitTableRow(line){
+  // 支持三种实验四输出：TSV、普通空格表、以及 cout 生成的固定宽度 | 表。
+  if(line.includes("|")){
+    let arr=line.split("|").map(x=>trim(x));
+    if(arr.length && arr[arr.length-1]==="")arr.pop();
+    return arr;
+  }
+  return splitLine(line);
+}
+function isSeparatorLine(line){return /^[-=]{6,}$/.test(trim(line).replace(/\s+/g,""));}
+function normalizeActionValue(v){
+  v=trim(v);
+  if(!v)return "";
+  // 兼容 S3、s3、R12、r12、acc，以及冲突格 S3/R4。
+  const m=v.match(/^(S\d+|R\d+|acc)(?:\/.*)?$/i);
+  return m?m[1].toUpperCase().replace("ACC","acc"):v;
+}
+function isActionValue(v){return /^(S\d+|R\d+|acc)(?:\/.*)?$/i.test(trim(v));}
+function makeNode(type,label,children=[],data={}){return {id:astNodes.length,type,label,children,data};}
+function grammarOfType(type,lexeme){
+  // 兼容两套 Token 命名：旧版 d/i/f/int/( 形式，以及新版 INT/ID/LPAR 形式。
+  const mp={
+    ID:"ID", NUM:"INT_NUM", INT_NUM:"INT_NUM", FLO:"FLOAT_NUM", FLOAT_NUM:"FLOAT_NUM",
+    INT:"INT", FLOAT:"FLOAT", VOID:"VOID", RETURN:"RETURN", IF:"IF", ELSE:"ELSE", WHILE:"WHILE", FOR:"FOR", PRINT:"PRINT",
+    LPA:"LPAR", LPAR:"LPAR", RPA:"RPAR", RPAR:"RPAR", LBR:"LBR", RBR:"RBR", LBK:"LBRACK", LBRACK:"LBRACK", RBK:"RBRACK", RBRACK:"RBRACK",
+    CMA:"COMMA", COMMA:"COMMA", SCO:"SEMI", SEMI:"SEMI", ASG:"ASG", ADD:"ADD", SUB:"SUB", MUL:"MUL", DIV:"DIV",
+    ROP:"REL_OP", REL_OP:"REL_OP", BOP:lexeme, END:"END"
+  };
+  return mp[type] || lexeme;
+}
+
+function readFileToTextarea(inputId, textareaId){
+  const file=document.getElementById(inputId).files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>document.getElementById(textareaId).value=e.target.result;
+  reader.readAsText(file,"UTF-8");
+}
+document.getElementById("tokenFile").addEventListener("change",()=>readFileToTextarea("tokenFile","tokenInput"));
+document.getElementById("slrFile").addEventListener("change",()=>readFileToTextarea("slrFile","slrInput"));
+
+function parseTokens(text){
+  let res=[];
+  text.split(/\r?\n/).forEach((line,idx)=>{
+    line=trim(line);
+    if(!line || line.startsWith("#"))return;
+    const p=splitLine(line);
+    // 支持表头：type	lexeme	grammar	line	col
+    if(p.length>=3 && p[0].toLowerCase()==="type" && p[1].toLowerCase()==="lexeme")return;
+    if(p.length>=5){
+      let g=p[2];
+      if(g==="#")g="END";
+      if(g==="；")g="SEMI";
+      res.push({type:p[0],lexeme:p[1],grammar:g,line:+p[3]||0,col:+p[4]||0});
+    }
+    else if(p.length>=2){res.push({type:p[0],lexeme:p[1],grammar:grammarOfType(p[0],p[1]),line:idx+1,col:1});}
+  });
+  if(res.length===0 || !(res[res.length-1].grammar==="END" || res[res.length-1].grammar==="#"))res.push({type:"END",lexeme:"#",grammar:"END",line:0,col:0});
+  return res;
+}
+
+function parseProductionLine(line){
+  let m=line.match(/^\s*(\d+)\s*[:\t ]\s*([^\-\s]+)\s*->\s*(.+)$/);
+  if(!m)return null;
+  let id=+m[1], left=trim(m[2]), rhs=trim(m[3]);
+  // 去掉 slr_report.txt 里类似 “(增广开始产生式)” 的说明文字。
+  rhs=rhs.replace(/\s+\(.+?\)\s*$/," ").trim();
+  let right=rhs.includes(" ")?rhs.split(/\s+/).filter(Boolean):rhs.split("").filter(Boolean);
+  if(rhs==="ε" || rhs==="@")right=[];
+  return {id,left,right,raw:`${left}->${right.join(" ")}`};
+}
+
+function parseSlr(text){
+  productions=[]; ACTION={}; GOTO_TABLE={};
+  const rawLines=text.split(/\r?\n/);
+  const lines=rawLines.map(x=>trim(x)).filter(Boolean);
+
+  // 1) 读取产生式编号。支持：0: S->E、0\tS\tE、以及 slr_report.txt 中的产生式编号段。
+  lines.forEach(line=>{
+    let p=parseProductionLine(line);
+    if(!p){
+      const cols=splitLine(line);
+      // 只把 productions.tsv 这类短行当作产生式；SLR 大表每行列数很多，不能误识别。
+      if(cols.length>=3 && cols.length<=6 && /^\d+$/.test(cols[0])){
+        const id=+cols[0], left=cols[1], rhs=cols.slice(2).join(" ");
+        p=parseProductionLine(`${id}: ${left}->${rhs}`);
+      }
+    }
+    if(p)productions[p.id]=p;
+  });
+
+  // 2) 定位分析表表头。优先找 state 开头的 TSV；其次找包含 | 的固定宽度表头；
+  //    最后兼容中文“状态”表头。
+  let tableStart=-1;
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    const cols=splitTableRow(line);
+    if(cols.length<2)continue;
+    const first=trim(cols[0]).toLowerCase();
+    if(first==="state" || first==="状态"){tableStart=i;break;}
+    if(line.includes("|") && (cols[0]==="" || first==="state") && cols.some(x=>x==="#") && cols.length>=3){tableStart=i;break;}
+  }
+
+  if(tableStart>=0){
+    let header=splitTableRow(lines[tableStart]);
+    // 固定宽度表头通常第一个单元为空，代表状态列。
+    if(header[0]==="")header[0]="state";
+    slrHeaders=header.slice(1).map(x=>trim(x)).filter(Boolean);
+
+    for(let r=tableStart+1;r<lines.length;r++){
+      const line=lines[r];
+      if(isSeparatorLine(line) || /提示[:：]/.test(line) || /^=+/.test(line))continue;
+      let cols=splitTableRow(line);
+      if(cols.length<2)continue;
+
+      // 遇到下一段标题或明显非表格内容就跳过。
+      if(!/^\d+$/.test(trim(cols[0])))continue;
+      const state=trim(cols[0]);
+
+      // 某些纯空格表会丢失空单元，无法可靠对齐；如果是 | 表或 TSV，空单元会保留。
+      for(let c=1;c<header.length;c++){
+        const sym=trim(header[c]||"");
+        if(!sym)continue;
+        const val=normalizeActionValue(cols[c]||"");
+        if(!val)continue;
+        if(isActionValue(val))ACTION[state+"|"+sym]=val;
+        else if(/^\d+$/.test(val))GOTO_TABLE[state+"|"+sym]=val;
+      }
+    }
+  }
+
+  // 3) 额外兼容 action.tsv / goto.tsv 直接拼接在一起的情况。
+  // action.tsv: state <terminal...>; goto.tsv: state <nonterminal...>
+  const tableBlocks=text.split(/\n\s*\n/);
+  tableBlocks.forEach(block=>{
+    const bLines=block.split(/\r?\n/).map(x=>trim(x)).filter(Boolean);
+    if(bLines.length<2)return;
+    const head=splitTableRow(bLines[0]);
+    if(trim(head[0]).toLowerCase()!=="state")return;
+    let hasAction=false, hasGoto=false;
+    for(let i=1;i<bLines.length;i++){
+      const cols=splitTableRow(bLines[i]);
+      for(let c=1;c<cols.length;c++){
+        if(isActionValue(cols[c]))hasAction=true;
+        else if(/^\d+$/.test(trim(cols[c])))hasGoto=true;
+      }
+    }
+    for(let i=1;i<bLines.length;i++){
+      const cols=splitTableRow(bLines[i]);
+      if(!/^\d+$/.test(trim(cols[0]||"")))continue;
+      const state=trim(cols[0]);
+      for(let c=1;c<head.length;c++){
+        const sym=trim(head[c]||"");
+        const val=normalizeActionValue(cols[c]||"");
+        if(!sym||!val)continue;
+        if(isActionValue(val))ACTION[state+"|"+sym]=val;
+        else if(/^\d+$/.test(val) && hasGoto)GOTO_TABLE[state+"|"+sym]=val;
+      }
+    }
+  });
+
+  addDefaultProductionsIfNeeded();
+  return {productions,ACTION,GOTO_TABLE};
+}
+
+
+function addDefaultProductionsIfNeeded(){
+  if(productions.filter(Boolean).length>0)return;
+  const hasCourseTable=slrHeaders.includes("Prog") && slrHeaders.includes("DeclList") && slrHeaders.includes("VarDecl") && slrHeaders.includes("Fact");
+  if(!hasCourseTable)return;
+  // 适配本次上传的 slr_table.tsv：表中只有 R 编号，没有产生式编号，因此内置一份与该表编号对应的课程文法。
+  const defs={
+    0:["Prog'",["Prog"]],
+    1:["Prog",["DeclList"]],
+    2:["DeclList",["DeclList","Decl"]],
+    3:["DeclList",["Decl"]],
+    4:["Decl",["VarDecl"]],
+    5:["Decl",["FunDecl"]],
+    6:["VarDecl",["Type","ID","SEMI"]],
+    7:["VarDecl",["Type","ID","LBRACK","INT_NUM","RBRACK","SEMI"]],
+    8:["VarDecl",["Type","ID","ASG","Expr","SEMI"]],
+    9:["Type",["INT"]],
+    10:["Type",["FLOAT"]],
+    11:["Type",["VOID"]],
+    12:["FunDecl",["Type","ID","LPAR","ParamList","RPAR","CompStmt"]],
+    13:["ParamList",["ParamList","COMMA","Param"]],
+    14:["ParamList",["Param"]],
+    15:["ParamList",[]],
+    16:["Param",["Type","ID"]],
+    17:["Param",["Type","ID","LBRACK","RBRACK"]],
+    18:["CompStmt",["LBR","StmtList","RBR"]],
+    19:["StmtList",["StmtList","Stmt"]],
+    20:["StmtList",[]],
+    21:["Stmt",["VarDecl"]],
+    22:["Stmt",["OtherStmt"]],
+    23:["OtherStmt",["ExprStmt"]],
+    24:["OtherStmt",["CompStmt"]],
+    25:["OtherStmt",["IfStmt"]],
+    26:["OtherStmt",["LoopStmt"]],
+    27:["OtherStmt",["ForStmt"]],
+    28:["OtherStmt",["RetStmt"]],
+    29:["OtherStmt",["PrintStmt"]],
+    30:["PrintStmt",["PRINT","LPAR","Expr","RPAR","SEMI"]],
+    31:["ExprStmt",["Expr","SEMI"]],
+    32:["ExprStmt",["SEMI"]],
+    33:["IfStmt",["IF","LPAR","Expr","RPAR","CompStmt"]],
+    34:["IfStmt",["IF","LPAR","Expr","RPAR","CompStmt","ELSE","CompStmt"]],
+    35:["LoopStmt",["WHILE","LPAR","Expr","RPAR","Stmt"]],
+    36:["ForStmt",["FOR","LPAR","ExprStmt","ExprStmt","Expr","RPAR","Stmt"]],
+    37:["RetStmt",["RETURN","Expr","SEMI"]],
+    38:["RetStmt",["RETURN","SEMI"]],
+    39:["Expr",["ID","ASG","Expr"]],
+    40:["Expr",["ID","LBRACK","Expr","RBRACK","ASG","Expr"]],
+    41:["Fact",["ID","LPAR","ArgList","RPAR"]],
+    42:["Expr",["SimpExpr"]],
+    43:["SimpExpr",["AddExpr","REL_OP","AddExpr"]],
+    44:["SimpExpr",["AddExpr"]],
+    45:["AddExpr",["AddExpr","ADD","Term"]],
+    46:["AddExpr",["AddExpr","SUB","Term"]],
+    47:["AddExpr",["Term"]],
+    48:["Term",["Term","MUL","Fact"]],
+    49:["Term",["Term","DIV","Fact"]],
+    50:["Term",["Fact"]],
+    51:["Fact",["ID"]],
+    52:["Fact",["ID","LBRACK","Expr","RBRACK"]],
+    53:["Fact",["INT_NUM"]],
+    54:["Fact",["FLOAT_NUM"]],
+    55:["Fact",["LPAR","Expr","RPAR"]],
+    56:["ArgList",["ArgList","COMMA","Expr"]],
+    57:["ArgList",["Expr"]],
+    58:["ArgList",[]]
+  };
+  Object.keys(defs).forEach(k=>{const [left,right]=defs[k]; productions[+k]={id:+k,left,right,raw:`${left}->${right.join(" ")||"ε"}`};});
+  formatNotes.push("SLR 表中没有产生式编号，已自动套用课程文法默认产生式 0-58。");
+}
+
+function normalizeTokensForCourseTable(input){
+  // 兼容你上传的 tokens.tsv：形参用分号分隔且末尾也带分号；函数/复合语句后带分号；部分语句在 } 前省略分号；函数调用实参末尾有逗号。
+  let rows=input.map(x=>Object.assign({},x));
+  let out=[];
+  for(let i=0;i<rows.length;i++){
+    if(i+3<rows.length && ["INT","FLOAT","VOID"].includes(rows[i].grammar) && rows[i+1].grammar==="ID" && rows[i+2].grammar==="LPAR"){
+      let j=i+3, depth=1;
+      while(j<rows.length){
+        if(rows[j].grammar==="LPAR")depth++;
+        else if(rows[j].grammar==="RPAR"){depth--; if(depth===0)break;}
+        j++;
+      }
+      if(j<rows.length && rows[j+1]?.grammar==="LBR"){
+        out.push(rows[i],rows[i+1],rows[i+2]);
+        const params=rows.slice(i+3,j);
+        params.forEach((p,k)=>{
+          let q=Object.assign({},p);
+          if(q.grammar==="SEMI"){
+            if(params.slice(k+1).some(x=>["INT","FLOAT","VOID"].includes(x.grammar))){q.grammar="COMMA"; q.type="COMMA"; q.lexeme=","; out.push(q);}
+            // 最后一个形参后的分号直接丢弃
+          }else out.push(q);
+        });
+        out.push(rows[j]); i=j; continue;
+      }
+    }
+    let r=Object.assign({},rows[i]);
+    if(r.grammar==="#")r.grammar="END";
+    if(r.grammar==="SEMI" && out.length && out[out.length-1].grammar==="RBR"){
+      formatNotes.push("已忽略复合语句/函数体右花括号后的 SEMI。位置：line "+r.line+", col "+r.col);
+      continue;
+    }
+    if(r.grammar==="RPAR" && out.length && out[out.length-1].grammar==="COMMA"){
+      out.pop(); formatNotes.push("已忽略函数调用实参列表末尾 COMMA。位置：line "+r.line+", col "+r.col);
+    }
+    if(r.grammar==="RBR" && out.length){
+      const prev=out[out.length-1].grammar;
+      if(["ID","INT_NUM","FLOAT_NUM","RPAR","RBRACK"].includes(prev)){
+        const semi=Object.assign({},r,{type:"SEMI",lexeme:";",grammar:"SEMI"});
+        out.push(semi); formatNotes.push("已在右花括号前补充省略的 SEMI。位置：line "+r.line+", col "+r.col);
+      }
+    }
+    out.push(r);
+  }
+  if(out.length>=4 && out[out.length-4].grammar==="ID" && out[out.length-3].grammar==="LPAR" && out[out.length-2].grammar==="RPAR" && out[out.length-1].grammar==="END"){
+    formatNotes.push("已忽略文件末尾用于演示运行的 main() 调用，使其符合该 SLR 表的声明列表入口。");
+    out=out.slice(0,-4).concat([out[out.length-1]]);
+  }
+  return out;
+}
+
+function tokenAttr(tok){
+  let data={type:"unknown",line:tok.line,col:tok.col,name:tok.lexeme,lexeme:tok.lexeme};
+  if(tok.grammar==="INT_NUM"||tok.grammar==="i")data.type="int";
+  else if(tok.grammar==="FLOAT_NUM"||tok.grammar==="f")data.type="float";
+  else if(["INT","FLOAT","VOID","int","float","void"].includes(tok.grammar))data.type=tok.lexeme.toLowerCase();
+  else if(tok.grammar==="ID"||tok.grammar==="d")data.type="id";
+  let node=makeNode(tok.grammar,tok.lexeme,[],data); astNodes.push(node);
+  return {symbol:tok.grammar,node,type:data.type,name:tok.lexeme,token:tok,line:tok.line,col:tok.col};
+}
+
+function lookup(name,scopeStack){
+  for(let i=scopeStack.length-1;i>=0;i--){
+    if(scopeStack[i][name])return scopeStack[i][name];
+  }
+  return null;
+}
+function declareSymbol(name,kind,type,line,col,scopeStack){
+  const level=scopeStack.length-1;
+  const cur=scopeStack[level];
+  if(cur[name])errors.push(`line ${line}, col ${col}: 重复声明 ${name}`);
+  else{
+    const sym={name,kind,type,scope:level,line,col};
+    cur[name]=sym; symbols.push(sym);
+  }
+}
+function compatible(left,right){
+  if(!left||!right||left==="unknown"||right==="unknown")return true;
+  if(left===right)return true;
+  if(left==="float"&&right==="int")return true;
+  return false;
+}
+
+function reduceAction(prod, attrs, scopeStack){
+  const left=prod.left, right=prod.right;
+  let label=left+" → "+(right.length?right.join(" "):"ε");
+  let node=makeNode(left,label,attrs.map(a=>a.node).filter(Boolean),{});
+  let out={symbol:left,node,type:"unknown",name:"",line:attrs[0]?.line||0,col:attrs[0]?.col||0};
+  const r=right.join(" ");
+  const idSyms=["ID","d"];
+  const intSyms=["INT_NUM","i"];
+  const floatSyms=["FLOAT_NUM","f"];
+  const typeTerms=["INT","FLOAT","VOID","int","float","void"];
+  const ids=attrs.filter(a=>idSyms.includes(a.symbol));
+  const typeAttr=attrs.find(a=>a.symbol==="Type" || typeTerms.includes(a.symbol));
+  const exprLike=a=>["Expr","SimpExpr","AddExpr","Term","Fact","E","ID","d","INT_NUM","i","FLOAT_NUM","f"].includes(a.symbol);
+  const dtype=typeAttr?(typeAttr.name||typeAttr.type):"unknown";
+
+  if(left==="Type" || left==="T"){
+    const t=attrs.find(a=>typeTerms.includes(a.symbol));
+    if(t){node.label="Type: "+t.name.toLowerCase(); out.type=t.name.toLowerCase(); out.name=t.name.toLowerCase();}
+  }
+  else if(left==="Param"){
+    const idAttr=ids[0];
+    if(idAttr){
+      declareSymbol(idAttr.name,"param",dtype||"unknown",idAttr.line,idAttr.col,scopeStack);
+      node.label=`Param ${idAttr.name}: ${dtype}`; out.type=dtype; out.name=idAttr.name;
+    }
+  }
+  else if(left==="VarDecl" || left==="D" || left==="Decl"){
+    const idAttr=ids[0];
+    if(idAttr && (left==="VarDecl" || right.includes("ID") || right.includes("d"))){
+      declareSymbol(idAttr.name,"variable",dtype||"unknown",idAttr.line,idAttr.col,scopeStack);
+      node.label=`Declare ${idAttr.name}: ${dtype||"unknown"}`;
+      out.type=dtype||"unknown"; out.name=idAttr.name;
+    }
+  }
+  else if(left==="FunDecl" || (left==="F" && r.includes("LPAR"))){
+    const idAttr=ids[0];
+    if(idAttr){
+      declareSymbol(idAttr.name,"function",dtype||"unknown",idAttr.line,idAttr.col,scopeStack);
+      node.label=`Function ${idAttr.name}(): ${dtype||"unknown"}`;
+      out.type=dtype||"unknown"; out.name=idAttr.name;
+    }
+  }
+  else if(left==="Expr" || left==="E"){
+    if((right[0]==="ID"||right[0]==="d") && right.includes("ASG")){
+      const idAttr=ids[0];
+      const sym=lookup(idAttr.name,scopeStack);
+      const expr=attrs.slice().reverse().find(a=>a!==idAttr && exprLike(a));
+      if(!sym)errors.push(`line ${idAttr.line}, col ${idAttr.col}: 变量未声明 ${idAttr.name}`);
+      else if(expr && !compatible(sym.type,expr.type))errors.push(`line ${idAttr.line}, col ${idAttr.col}: 赋值类型不匹配，${idAttr.name} 为 ${sym.type}，右值为 ${expr.type}`);
+      node.label=`Assign ${idAttr.name}`; out.type=sym?.type||"unknown"; out.name=idAttr.name;
+    }else if(right.length===1){
+      const a=attrs[0]; out.type=a?.type||"unknown"; out.name=a?.name||""; node.label="Expr";
+    }else{out.type=attrs.find(a=>a.type==="float")?"float":"int"; node.label=`Expr: ${out.type}`;}
+  }
+  else if(["SimpExpr","AddExpr","Term"].includes(left)){
+    out.type=attrs.find(a=>a.type==="float")?"float":"int";
+    node.label=`${left}: ${out.type}`;
+  }
+  else if(left==="Fact"){
+    if(right.length===1){
+      const a=attrs[0];
+      if(idSyms.includes(a.symbol)){
+        const sym=lookup(a.name,scopeStack);
+        if(!sym)errors.push(`line ${a.line}, col ${a.col}: 变量未声明 ${a.name}`);
+        out.type=sym?.type||"unknown"; out.name=a.name; node.label=`ID ${a.name}: ${out.type}`;
+      }else if(intSyms.includes(a.symbol)){out.type="int"; node.label=`Int ${a.name}`;}
+      else if(floatSyms.includes(a.symbol)){out.type="float"; node.label=`Float ${a.name}`;}
+      else {out.type=a.type; node.label="Fact";}
+    }else if(right[0]==="ID" && right.includes("LPAR")){
+      const idAttr=ids[0];
+      const sym=lookup(idAttr.name,scopeStack);
+      if(!sym)errors.push(`line ${idAttr.line}, col ${idAttr.col}: 函数未声明 ${idAttr.name}`);
+      node.label=`Call ${idAttr.name}`; out.type=sym?.type||"unknown"; out.name=idAttr.name;
+    }else{out.type=attrs.find(a=>a.type==="float")?"float":"int"; node.label="Fact";}
+  }
+  else if(left==="RetStmt" || left==="R"){
+    const expr=attrs.slice().reverse().find(exprLike);
+    node.label="Return"; out.type=expr?.type||"unknown";
+  }
+  else if(["Prog","Prog'","Program"].includes(left))node.label="Program";
+
+  astNodes.push(node); out.node=node; return out;
+}
+
+function runSemantic(){
+  formatNotes=[]; slrHeaders=[];
+  tokens=parseTokens(document.getElementById("tokenInput").value);
+  parseSlr(document.getElementById("slrInput").value);
+  if(slrHeaders.includes("Prog") && tokens.some(t=>t.grammar==="INT"||t.grammar==="ID"))tokens=normalizeTokensForCourseTable(tokens);
+  trace=[]; astNodes=[]; symbols=[]; errors=[]; astRoot=null; currentStep=-1;
+
+  let stateStack=["0"], symbolStack=[], attrStack=[], ip=0;
+  let scopeStack=[{}];
+  let maxSteps=1000;
+
+  for(let step=0;step<maxSteps;step++){
+    let state=stateStack[stateStack.length-1];
+    let tok=tokens[ip]||tokens[tokens.length-1];
+    let a=tok.grammar;
+    let act=ACTION[state+"|"+a]||"";
+    trace.push({step,stateStack:stateStack.join(" "),symbolStack:symbolStack.join(" "),lookahead:a,lexeme:tok.lexeme,action:act||"ERROR"});
+
+    if(!act){
+      errors.push(`line ${tok.line}, col ${tok.col}: SLR 分析表中无动作，state=${state}, lookahead=${a}`);
+      break;
+    }
+    if(/^acc$/i.test(act)){
+      astRoot=attrStack.length?attrStack[attrStack.length-1].node:null;
+      trace[trace.length-1].accepted=true;
+      break;
+    }
+    if(/^S\d+/.test(act)){
+      if(a==="{")scopeStack.push({});
+      if(a==="}" && scopeStack.length>1)scopeStack.pop();
+      symbolStack.push(a);
+      stateStack.push(act.substring(1));
+      attrStack.push(tokenAttr(tok));
+      ip++;
+    }else if(/^R\d+/.test(act)){
+      let pid=+act.substring(1);
+      let prod=productions[pid];
+      if(!prod){errors.push(`规约动作 ${act} 找不到对应产生式，请在 SLR 表文件中补充 "${pid}: A->..."`);break;}
+      let len=prod.right.length;
+      let attrs=[];
+      for(let i=0;i<len;i++){
+        stateStack.pop(); symbolStack.pop(); attrs.unshift(attrStack.pop());
+      }
+      const newAttr=reduceAction(prod,attrs,scopeStack);
+      let top=stateStack[stateStack.length-1];
+      let gt=GOTO_TABLE[top+"|"+prod.left]||"";
+      if(!gt){
+        errors.push(`规约 ${prod.raw} 后找不到 GOTO[${top}, ${prod.left}]`);
+        attrStack.push(newAttr); symbolStack.push(prod.left);
+        break;
+      }
+      symbolStack.push(prod.left);
+      stateStack.push(gt);
+      attrStack.push(newAttr);
+    }else{
+      errors.push(`未知动作 ${act}`);
+      break;
+    }
+  }
+
+  if(!astRoot && astNodes.length)astRoot=astNodes[astNodes.length-1];
+  renderAll();
+}
+
+function renderAll(){
+  drawTrace(); drawAst(); drawSymbols(); drawErrors(); drawBadges();
+}
+function drawBadges(){
+  document.getElementById("summaryBadges").innerHTML=`
+    <span class="badge ok">Token: ${tokens.length}</span>
+    <span class="badge">产生式: ${productions.filter(Boolean).length}</span>
+    <span class="badge ${errors.length?'err':'ok'}">语义错误: ${errors.length}</span>
+    <span class="badge warn">分析步数: ${trace.length}</span>`;
+}
+function drawTrace(){
+  const tb=document.getElementById("traceTable");
+  tb.innerHTML="<tr><th>step</th><th>状态栈</th><th>符号栈</th><th>lookahead</th><th>lexeme</th><th>action</th></tr>";
+  trace.forEach((r,i)=>{
+    const cls=r.accepted?"accept":(r.action==="ERROR"?"error":(i===currentStep?"active":""));
+    tb.innerHTML+=`<tr class="trace-row ${cls}"><td>${r.step}</td><td>${esc(r.stateStack)}</td><td>${esc(r.symbolStack)}</td><td>${esc(r.lookahead)}</td><td>${esc(r.lexeme)}</td><td>${esc(r.action)}</td></tr>`;
+  });
+}
+function stepForward(){
+  if(trace.length===0)runSemantic();
+  currentStep=(currentStep+1)%Math.max(trace.length,1);
+  drawTrace();
+}
+function resetStep(){currentStep=-1; drawTrace();}
+
+function collectTree(root){
+  const levels=[];
+  function dfs(n,d){ if(!n)return; if(!levels[d])levels[d]=[]; levels[d].push(n); (n.children||[]).forEach(c=>dfs(c,d+1)); }
+  dfs(root,0); return levels;
+}
+function drawAst(){
+  const svg=document.getElementById("astSvg"); svg.innerHTML="";
+  const text=document.getElementById("astText");
+  if(!astRoot){svg.innerHTML=""; text.textContent="暂无 AST。"; return;}
+  const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
+  defs.innerHTML=`<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"></path></marker>`;
+  svg.appendChild(defs);
+  const levels=collectTree(astRoot), W=svg.clientWidth||800, H=Math.max(svg.clientHeight||360,levels.length*95+40);
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  const pos=new Map();
+  levels.forEach((arr,d)=>{
+    arr.forEach((n,i)=>{
+      const x=(i+1)*W/(arr.length+1), y=45+d*90;
+      pos.set(n.id,{x,y});
+    });
+  });
+  function drawEdges(n){
+    const p=pos.get(n.id);
+    (n.children||[]).forEach(c=>{
+      const q=pos.get(c.id);
+      const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+      path.setAttribute("d",`M${p.x},${p.y+24} C${p.x},${(p.y+q.y)/2} ${q.x},${(p.y+q.y)/2} ${q.x},${q.y-24}`);
+      path.setAttribute("class","ast-edge"); svg.appendChild(path); drawEdges(c);
+    });
+  }
+  drawEdges(astRoot);
+  levels.flat().forEach(n=>{
+    const p=pos.get(n.id); const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+    const w=Math.min(150,Math.max(78,String(n.label).length*7+20));
+    const rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
+    rect.setAttribute("x",p.x-w/2); rect.setAttribute("y",p.y-24); rect.setAttribute("width",w); rect.setAttribute("height",48); rect.setAttribute("class","node-rect"); g.appendChild(rect);
+    const t1=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t1.setAttribute("x",p.x); t1.setAttribute("y",p.y-5); t1.setAttribute("class","node-label"); t1.textContent=String(n.label).slice(0,20); g.appendChild(t1);
+    const t2=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t2.setAttribute("x",p.x); t2.setAttribute("y",p.y+13); t2.setAttribute("class","node-type"); t2.textContent=n.type; g.appendChild(t2);
+    svg.appendChild(g);
+  });
+  text.textContent=astToText(astRoot);
+}
+function astToText(n,depth=0){
+  if(!n)return "";
+  let s="  ".repeat(depth)+`${n.type}: ${n.label}\n`;
+  (n.children||[]).forEach(c=>s+=astToText(c,depth+1));
+  return s;
+}
+
+function drawSymbols(){
+  const tb=document.getElementById("symbolTable");
+  tb.innerHTML="<tr><th>name</th><th>kind</th><th>type</th><th>scope</th><th>line</th><th>col</th></tr>";
+  symbols.forEach(s=>tb.innerHTML+=`<tr><td>${esc(s.name)}</td><td>${esc(s.kind)}</td><td>${esc(s.type)}</td><td>${s.scope}</td><td>${s.line}</td><td>${s.col}</td></tr>`);
+}
+function drawErrors(){
+  const box=document.getElementById("errorBox");
+  let noteHtml=formatNotes.length?formatNotes.map(e=>`<div class="ok-item">格式兼容：${esc(e)}</div>`).join(""):"";
+  if(errors.length===0)box.innerHTML=noteHtml+'<div class="ok-item">未发现语义错误。</div>';
+  else box.innerHTML=noteHtml+errors.map(e=>`<div class="error-item">${esc(e)}</div>`).join("");
+}
+
+function download(name,content,type="text/plain"){
+  const blob=new Blob([content],{type}); const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
+function downloadTrace(){
+  const s="step\tstate_stack\tsymbol_stack\tlookahead\tlexeme\taction\n"+trace.map(r=>`${r.step}\t${r.stateStack}\t${r.symbolStack}\t${r.lookahead}\t${r.lexeme}\t${r.action}`).join("\n");
+  download("parse_trace.tsv",s);
+}
+function downloadSymbols(){
+  const s="name\tkind\ttype\tscope\tline\tcol\n"+symbols.map(x=>`${x.name}\t${x.kind}\t${x.type}\t${x.scope}\t${x.line}\t${x.col}`).join("\n");
+  download("symbols.tsv",s);
+}
+function dotEscape(s){return String(s).replace(/"/g,"\\\"");}
+function astToDot(){
+  let out="digraph AST {\n  node [shape=box, style=rounded, fontname=\"Microsoft YaHei\"];\n";
+  function dfs(n){ if(!n)return; out+=`  n${n.id} [label=\"${dotEscape(n.type+': '+n.label)}\"];\n`; (n.children||[]).forEach(c=>{out+=`  n${n.id} -> n${c.id};\n`; dfs(c);});}
+  dfs(astRoot); return out+"}\n";
+}
+function downloadAstDot(){download("ast.dot",astToDot());}
+function downloadReport(){
+  const report=`实验五语义分析可视化报告\n\n【语义错误】\n${errors.length?errors.join("\n"):"No semantic errors."}\n\n【AST】\n${astToText(astRoot)}\n`;
+  download("semantic_report.txt",report);
+}
+
+runSemantic();
+</script>
+</body>
+</html>
