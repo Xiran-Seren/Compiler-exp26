@@ -225,71 +225,199 @@ pre{
     <p class="sub">读取实验二 Token 文件和实验四 SLR(1) 分析表，模拟规约过程，并展示 AST、符号表和语义错误。</p>
 
     <label>实验二 tokens.tsv 内容</label>
-    <textarea id="tokenInput" rows="13"># type	lexeme	grammar	line	col
-INT	int	int	1	1
-ID	main	d	1	5
-LPA	(	(	1	9
-RPA	)	)	1	10
-LBR	{	{	1	12
-INT	int	int	2	3
-ID	a	d	2	7
-SCO	;	;	2	8
-ID	a	d	3	3
-ASG	=	=	3	5
-NUM	1	i	3	7
-ADD	+	+	3	9
-NUM	2	i	3	11
-SCO	;	;	3	12
-RETURN	return	return	4	3
-ID	a	d	4	10
-SCO	;	;	4	11
-RBR	}	}	5	1
-END	#	#	5	2</textarea>
+    <textarea id="tokenInput" rows="13">type	lexeme	grammar	line	col
+INT	int	INT	1	1
+ID	calculate	ID	1	5
+LPAR	(	LPAR	1	14
+INT	int	INT	1	15
+ID	a	ID	1	19
+SEMI	;	SEMI	1	20
+INT	int	INT	1	22
+ID	b	ID	1	26
+SEMI	;	SEMI	1	27
+INT	int	INT	1	29
+ID	c	ID	1	33
+SEMI	;	SEMI	1	34
+RPAR	)	RPAR	1	35
+LBR	{	LBR	1	37
+INT	int	INT	2	5
+ID	result	ID	2	9
+SEMI	；	SEMI	2	15
+INT	int	INT	3	5
+ID	temp	ID	3	9
+SEMI	;	SEMI	3	13
+ID	result	ID	4	5
+ASG	=	ASG	4	12
+ID	a	ID	4	14
+MUL	*	MUL	4	16
+ID	b	ID	4	18
+ADD	+	ADD	4	20
+ID	c	ID	4	22
+SEMI	;	SEMI	4	23
+LBR	{	LBR	5	5
+ID	temp	ID	6	9
+ASG	=	ASG	6	14
+ID	result	ID	6	16
+MUL	*	MUL	6	23
+INT_NUM	2	INT_NUM	6	25
+SEMI	;	SEMI	6	26
+ID	result	ID	7	9
+ASG	=	ASG	7	16
+ID	temp	ID	7	18
+RBR	}	RBR	8	5
+SEMI	;	SEMI	8	6
+RETURN	return	RETURN	9	5
+ID	result	ID	9	12
+RBR	}	RBR	10	1
+SEMI	;	SEMI	10	2
+INT	int	INT	12	1
+ID	main	ID	12	5
+LPAR	(	LPAR	12	9
+RPAR	)	RPAR	12	10
+LBR	{	LBR	12	12
+INT	int	INT	13	5
+ID	x	ID	13	9
+SEMI	;	SEMI	13	10
+ID	x	ID	14	5
+ASG	=	ASG	14	7
+ID	calculate	ID	14	9
+LPAR	(	LPAR	14	18
+INT_NUM	3	INT_NUM	14	19
+COMMA	,	COMMA	14	20
+INT_NUM	4	INT_NUM	14	22
+COMMA	,	COMMA	14	23
+INT_NUM	5	INT_NUM	14	25
+COMMA	,	COMMA	14	26
+RPAR	)	RPAR	14	27
+SEMI	;	SEMI	14	28
+RETURN	return	RETURN	15	5
+ID	x	ID	15	12
+RBR	}	RBR	16	1
+SEMI	;	SEMI	16	2
+ID	main	ID	17	1
+LPAR	(	LPAR	17	5
+RPAR	)	RPAR	17	6
+END	#	END	17	7
+</textarea>
     <input id="tokenFile" type="file" accept=".tsv,.txt" />
 
     <label>实验四 SLR(1) 分析表 / 报告内容</label>
-    <textarea id="slrInput" rows="10">0: P->F
-1: F->int d ( ) { L }
-2: L->L ; S
-3: L->S
-4: S->D
-5: S->A
-6: S->R
-7: D->int d
-8: A->d = E
-9: R->return E
-10: E->E + E
-11: E->d
-12: E->i
-
-state	int	d	(	)	{	}	;	=	+	return	i	#	P	F	L	S	D	A	R	E
-0	S1													2						
-1		S3																		
-2												acc								
-3			S4																	
-4				S5																
-5					S6															
-6	S9	S10								S13					7	8	11	12	14	
-7						S15	S16													
-8						R3	R3													
-9		S17																		
-10								S18												
-11						R4	R4													
-12						R5	R5													
-13		S21									S22								19	
-14						R6	R6		R6											
-15												R1								
-16	S9	S10								S13						23	11	12	14	
-17						R7	R7													
-18		S21									S22								24	
-19						R9	R9		S25											
-20						R8	R8		S25											
-21						R11	R11		R11											
-22						R12	R12		R12											
-23						R2	R2													
-24						R8	R8		S25											
-25		S21									S22								26	
-26						R10	R10		R10											</textarea>
+    <textarea id="slrInput" rows="10">state	ADD	ASG	COMMA	DIV	ELSE	END	FLOAT	FLOAT_NUM	FOR	ID	IF	INT	INT_NUM	LBR	LBRACK	LPAR	MUL	PRINT	RBR	RBRACK	REL_OP	RETURN	RPAR	SEMI	SUB	VOID	WHILE	AddExpr	ArgList	CompStmt	Decl	DeclList	Expr	ExprStmt	Fact	ForStmt	FunDecl	IfStmt	LoopStmt	OtherStmt	Param	ParamList	PrintStmt	Prog	Prog'	RetStmt	SimpExpr	Stmt	StmtList	Term	Type	VarDecl
+0							S3					S5														S8					1	2					4							6							7	9
+1						R3	R3					R3														R3																										
+2						R1	S3					S5														S8					10						4														7	9
+3										R10																																										
+4						R5	R5					R5														R5																										
+5										R9																																										
+6						acc																																														
+7										S11																																										
+8										R11																																										
+9						R4	R4					R4														R4																										
+10						R2	R2					R2														R2																										
+11		S12													S13	S14								S15																												
+12								S18		S20			S21			S22												16					17		19												23			24		
+13													S25																																							
+14			R15				S3					S5											R15			S8															26	27									28	
+15						R6	R6	R6	R6	R6	R6	R6	R6	R6		R6		R6	R6			R6		R6		R6	R6																									
+16	S29		R44																	R44	S30		R44	R44	S31																											
+17																								S32																												
+18	R54		R54	R54													R54			R54	R54		R54	R54	R54																											
+19	R50		R50	R50													R50			R50	R50		R50	R50	R50																											
+20	R51	S33	R51	R51											S34	S35	R51			R51	R51		R51	R51	R51																											
+21	R53		R53	R53													R53			R53	R53		R53	R53	R53																											
+22								S18		S20			S21			S22												16					36		19												23			24		
+23			R42																	R42			R42	R42																												
+24	R47		R47	S37													S38			R47	R47		R47	R47	R47																											
+25																				S39																																
+26			R14																				R14																													
+27			S40																				S41																													
+28										S42																																										
+29								S18		S43			S21			S22																			19															44		
+30								S18		S43			S21			S22												45							19															24		
+31								S18		S43			S21			S22																			19															46		
+32						R8	R8	R8	R8	R8	R8	R8	R8	R8		R8		R8	R8			R8		R8		R8	R8																									
+33								S18		S20			S21			S22												16					47		19												23			24		
+34								S18		S20			S21			S22												16					48		19												23			24		
+35			R58					S18		S20			S21			S22							R58					16	49				50		19												23			24		
+36																							S51																													
+37								S18		S43			S21			S22																			52																	
+38								S18		S43			S21			S22																			53																	
+39																								S54																												
+40							S3					S5														S8															55										28	
+41														S57																56																						
+42			R16												S58								R16																													
+43	R51		R51	R51											S59		R51			R51	R51		R51	R51	R51																											
+44	R45		R45	S37													S38			R45	R45		R45	R45	R45																											
+45	S29		R43																	R43			R43	R43	S31																											
+46	R46		R46	S37													S38			R46	R46		R46	R46	R46																											
+47			R39																	R39			R39	R39																												
+48																				S60																																
+49			S61																				S62																													
+50			R57																				R57																													
+51	R55		R55	R55													R55			R55	R55		R55	R55	R55																											
+52	R49		R49	R49													R49			R49	R49		R49	R49	R49																											
+53	R48		R48	R48													R48			R48	R48		R48	R48	R48																											
+54						R7	R7	R7	R7	R7	R7	R7	R7	R7		R7		R7	R7			R7		R7		R7	R7																									
+55			R13																				R13																													
+56						R12	R12					R12														R12																										
+57							R20	R20	R20	R20	R20	R20	R20	R20		R20		R20	R20			R20		R20		R20	R20																						63			
+58																				S64																																
+59								S18		S20			S21			S22												16					65		19												23			24		
+60	R52	S66	R52	R52													R52			R52	R52		R52	R52	R52																											
+61								S18		S20			S21			S22												16					67		19												23			24		
+62			R41																	R41			R41	R41																												
+63							S3	S18	S71	S20	S73	S5	S21	S57		S22		S77	S79			S80		S82		S8	S86	16		68			69	70	19	72		74	75	76			78			81	23	83		24	84	85
+64			R17																				R17																													
+65																				S87																																
+66								S18		S20			S21			S22												16					88		19												23			24		
+67			R56																				R56																													
+68							R24	R24	R24	R24	R24	R24	R24	R24		R24		R24	R24			R24		R24		R24	R24																									
+69																								S89																												
+70							R23	R23	R23	R23	R23	R23	R23	R23		R23		R23	R23			R23		R23		R23	R23																									
+71																S90																																				
+72							R27	R27	R27	R27	R27	R27	R27	R27		R27		R27	R27			R27		R27		R27	R27																									
+73																S91																																				
+74							R25	R25	R25	R25	R25	R25	R25	R25		R25		R25	R25			R25		R25		R25	R25																									
+75							R26	R26	R26	R26	R26	R26	R26	R26		R26		R26	R26			R26		R26		R26	R26																									
+76							R22	R22	R22	R22	R22	R22	R22	R22		R22		R22	R22			R22		R22		R22	R22																									
+77																S92																																				
+78							R29	R29	R29	R29	R29	R29	R29	R29		R29		R29	R29			R29		R29		R29	R29																									
+79					R18	R18	R18	R18	R18	R18	R18	R18	R18	R18		R18		R18	R18			R18		R18		R18	R18																									
+80								S18		S20			S21			S22								S94				16					93		19												23			24		
+81							R28	R28	R28	R28	R28	R28	R28	R28		R28		R28	R28			R28		R28		R28	R28																									
+82							R32	R32	R32	R32	R32	R32	R32	R32		R32		R32	R32			R32		R32		R32	R32																									
+83							R19	R19	R19	R19	R19	R19	R19	R19		R19		R19	R19			R19		R19		R19	R19																									
+84										S95																																										
+85							R21	R21	R21	R21	R21	R21	R21	R21		R21		R21	R21			R21		R21		R21	R21																									
+86																S96																																				
+87	R52		R52	R52													R52			R52	R52		R52	R52	R52																											
+88			R40																	R40			R40	R40																												
+89							R31	R31	R31	R31	R31	R31	R31	R31		R31		R31	R31			R31		R31		R31	R31																									
+90								S18		S20			S21			S22								S82				16					69	97	19												23			24		
+91								S18		S20			S21			S22												16					98		19												23			24		
+92								S18		S20			S21			S22												16					99		19												23			24		
+93																								S100																												
+94							R38	R38	R38	R38	R38	R38	R38	R38		R38		R38	R38			R38		R38		R38	R38																									
+95		S12													S13									S15																												
+96								S18		S20			S21			S22												16					101		19												23			24		
+97								S18		S20			S21			S22								S82				16					69	102	19												23			24		
+98																							S103																													
+99																							S104																													
+100							R37	R37	R37	R37	R37	R37	R37	R37		R37		R37	R37			R37		R37		R37	R37																									
+101																							S105																													
+102								S18		S20			S21			S22												16					106		19												23			24		
+103														S57																107																						
+104																								S108																												
+105							S3	S18	S71	S20	S73	S5	S21	S57		S22		S77				S80		S82		S8	S86	16		68			69	70	19	72		74	75	76			78			81	23	109		24	84	85
+106																							S110																													
+107					S111		R33	R33	R33	R33	R33	R33	R33	R33		R33		R33	R33			R33		R33		R33	R33																									
+108							R30	R30	R30	R30	R30	R30	R30	R30		R30		R30	R30			R30		R30		R30	R30																									
+109							R35	R35	R35	R35	R35	R35	R35	R35		R35		R35	R35			R35		R35		R35	R35																									
+110							S3	S18	S71	S20	S73	S5	S21	S57		S22		S77				S80		S82		S8	S86	16		68			69	70	19	72		74	75	76			78			81	23	112		24	84	85
+111														S57																113																						
+112							R36	R36	R36	R36	R36	R36	R36	R36		R36		R36	R36			R36		R36		R36	R36																									
+113							R34	R34	R34	R34	R34	R34	R34	R34		R34		R34	R34			R34		R34		R34	R34																									
+</textarea>
     <input id="slrFile" type="file" accept=".tsv,.txt" />
 
     <button onclick="runSemantic()">开始语义分析可视化</button>
